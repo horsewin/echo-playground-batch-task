@@ -15,6 +15,11 @@ func NewReservationRepository(db *DB) *ReservationRepository {
 	return &ReservationRepository{db: db}
 }
 
+// BeginTx starts a new transaction
+func (r *ReservationRepository) BeginTx() (*sql.Tx, error) {
+	return r.db.BeginTx()
+}
+
 // GetPendingReservations は、ステータスがpendingの予約を取得します
 func (r *ReservationRepository) GetPendingReservations() ([]model.Reservation, error) {
 	var reservations []model.Reservation
