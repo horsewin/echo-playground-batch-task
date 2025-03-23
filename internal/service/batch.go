@@ -31,19 +31,23 @@ func NewBatchService(cfg *config.Config) *BatchService {
 }
 
 func (s *BatchService) Run(ctx context.Context) error {
-	ticker := time.NewTicker(1 * time.Minute)
-	defer ticker.Stop()
+	log.Println("Starting batch process...")
 
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-ticker.C:
-			if err := s.processPendingReservations(); err != nil {
-				log.Printf("Error processing pending reservations: %v", err)
-			}
-		}
+	// 処理開始時刻を記録
+	startTime := time.Now()
+
+	// バッチ処理を実行
+	if err := s.processPendingReservations(); err != nil {
+		log.Printf("Error processing pending reservations: %v", err)
+		return err
 	}
+
+	// 処理終了時刻を記録し、実行時間を計算
+	endTime := time.Now()
+	duration := endTime.Sub(startTime)
+
+	log.Printf("Batch process completed successfully. Duration: %v", duration)
+	return nil
 }
 
 func (s *BatchService) processPendingReservations() error {

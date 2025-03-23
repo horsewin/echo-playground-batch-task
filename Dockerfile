@@ -1,46 +1,24 @@
 # ビルドステージ
-FROM golang:1.21-alpine AS builder
-
-# 必要なパッケージのインストール
-RUN apk add --no-cache git
-
-# 作業ディレクトリの設定
+FROM public.ecr.aws/docker/library/golang:1.23.4 AS builder
+ENV GO111MODULE=on \
+    GOPATH=/go \
+    GOBIN=/go/bin \
+    PATH=/go/bin:$PATH
 WORKDIR /app
-
-# 依存関係のコピーとダウンロード
 COPY go.mod go.sum ./
 RUN go mod download
+# Install golangci-lint
+RUN go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.63.4
+# COPY main module
+COPY . /app
+# Check and Build
+RUN make validate && \
+    make build-linux
 
-# ソースコードのコピー
-COPY . .
-
-# アプリケーションのビルド
-RUN CGO_ENABLED=0 GOOS=linux go build -o /app/batch cmd/batch/main.go
-
-# 実行ステージ
-FROM alpine:latest
-
-# タイムゾーンの設定
-RUN apk --no-cache add tzdata && \
-    cp /usr/share/zoneinfo/Asia/Tokyo /etc/localtime && \
-    echo "Asia/Tokyo" > /etc/timezone && \
-    apk del tzdata
-
-# 必要なパッケージのインストール
-RUN apk add --no-cache ca-certificates
-
-# 作業ディレクトリの設定
+### If use TLS connection in container, add ca-certificates following command.
+### > RUN apt-get update && apt-get install -y ca-certificates
+FROM gcr.io/distroless/base-debian12
 WORKDIR /app
-
-# ビルドしたバイナリのコピー
-COPY --from=builder /app/batch .
-
-# 設定ファイルのコピー
+COPY --from=builder /app/bin/batch .
 COPY config/config.yaml ./config/
-
-# 実行ユーザーの設定
-RUN adduser -D -g '' appuser
-USER appuser
-
-# アプリケーションの実行
 CMD ["./batch"] 
