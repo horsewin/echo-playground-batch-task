@@ -1,0 +1,10 @@
+APP_NAME: "echo-playground-batch-task"
+# 必要に応じて設定項目を追加 
+
+DB:
+  HOST: "localhost"
+  PORT: 5432
+  USER: "postgres"
+  PASSWORD: "postgres"
+  DB_NAME: "echo_playground"
+  SSL_MODE: "disable" 
