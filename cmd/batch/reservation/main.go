@@ -22,7 +22,7 @@ func main() {
 	flag.Parse()
 
 	// 設定の読み込み
-	cfg, err := config.Load()
+	cfg, err := config.LoadConfig()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v\nStack trace:\n%s", err, debug.Stack())
 	}

@@ -9,10 +9,12 @@ all: validate build run
 local-all: validate build
 	@echo "==> Running with ENV=LOCAL..."
 	@ENV=LOCAL $(BUILD_DIR)/reservation-batch
+	@ENV=LOCAL $(BUILD_DIR)/notification-batch
 
 # ビルド
 build:
 	go build -ldflags "-s -w" -o $(BUILD_DIR)/reservation-batch cmd/batch/reservation/main.go
+	go build -ldflags "-s -w" -o $(BUILD_DIR)/notification-batch cmd/batch/notification/main.go
 
 # クリーンアップ
 clean:

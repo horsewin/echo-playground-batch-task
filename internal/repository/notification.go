@@ -37,27 +37,9 @@ func (r *NotificationRepository) CreateNotifications(records []model.Notificatio
 		}
 	}()
 
-	query := `
-		INSERT INTO notifications (
-			user_id, title, message, is_read, type, created_at, updated_at
-		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7
-		)
-	`
-
 	for _, record := range records {
-		_, err = tx.Exec(
-			query,
-			record.UserID,
-			record.Title,
-			record.Message,
-			record.IsRead,
-			record.Type,
-			record.CreatedAt,
-			record.UpdatedAt,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to insert notification: %w", err)
+		if err := r.Create(tx, &record); err != nil {
+			return fmt.Errorf("failed to create notification: %w", err)
 		}
 	}
 
@@ -92,4 +74,73 @@ func (r *NotificationRepository) Create(tx *sql.Tx, record *model.NotificationRe
 		record.CreatedAt,
 		record.UpdatedAt,
 	).Scan(&record.ID)
+}
+
+// BeginTx は新しいトランザクションを開始します
+func (r *NotificationRepository) BeginTx() (*sql.Tx, error) {
+	return r.db.Begin()
+}
+
+// GetByUserID は指定されたユーザーIDの通知を取得します
+func (r *NotificationRepository) GetByUserID(userID string) ([]model.NotificationRecord, error) {
+	query := `
+		SELECT id, user_id, title, message, is_read, type, created_at, updated_at
+		FROM notifications
+		WHERE user_id = $1
+		ORDER BY created_at DESC`
+
+	rows, err := r.db.Query(query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query notifications: %w", err)
+	}
+	defer rows.Close()
+
+	var records []model.NotificationRecord
+	for rows.Next() {
+		var record model.NotificationRecord
+		err := rows.Scan(
+			&record.ID,
+			&record.UserID,
+			&record.Title,
+			&record.Message,
+			&record.IsRead,
+			&record.Type,
+			&record.CreatedAt,
+			&record.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan notification: %w", err)
+		}
+		records = append(records, record)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating notifications: %w", err)
+	}
+
+	return records, nil
+}
+
+// UpdateIsRead は通知の既読状態を更新します
+func (r *NotificationRepository) UpdateIsRead(tx *sql.Tx, id int, isRead bool) error {
+	query := `
+		UPDATE notifications
+		SET is_read = $1, updated_at = CURRENT_TIMESTAMP
+		WHERE id = $2`
+
+	result, err := tx.Exec(query, isRead, id)
+	if err != nil {
+		return fmt.Errorf("failed to update notification is_read: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("notification with id %d not found", id)
+	}
+
+	return nil
 }

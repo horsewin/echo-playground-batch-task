@@ -15,7 +15,8 @@ type Config struct {
 	}
 }
 
-func Load() (*Config, error) {
+// LoadConfig は設定を読み込みます
+func LoadConfig() (*Config, error) {
 	cfg := &Config{
 		DB: database.Config{
 			Host:     getEnvOrDefault("DB_HOST", "localhost"),
