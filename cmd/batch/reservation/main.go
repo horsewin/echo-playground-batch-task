@@ -28,10 +28,11 @@ func main() {
 	// ENV=LOCALの場合はタスクトークンを取得しない
 	taskToken := "DUMMY_TASK_TOKEN"
 	if os.Getenv("ENV") != "LOCAL" {
-		taskToken = flag.Arg(len(flag.Args()) - 1)
+		taskToken = os.Getenv("TASK_TOKEN")
 		if taskToken == "" {
 			log.Fatalf("Task token is required")
 		}
+		log.Printf("Task token: %s", taskToken)
 	}
 
 	// 設定の読み込み
