@@ -88,11 +88,14 @@ func (s *BatchService) processPendingReservations() error {
 			}
 
 			// キャンセル通知を作成
-			notification := &model.Notification{
-				UserID:  reservation.UserID,
-				Title:   "予約キャンセル",
-				Message: fmt.Sprintf("申し訳ありませんが、ペットID %s は既に予約が入っているため、予約をキャンセルさせていただきました。", reservation.PetID),
-				IsRead:  false,
+			notification := &model.NotificationRecord{
+				UserID:    reservation.UserID,
+				Title:     "予約キャンセル",
+				Message:   fmt.Sprintf("申し訳ありませんが、ペットID %s は既に予約が入っているため、予約をキャンセルさせていただきました。", reservation.PetID),
+				IsRead:    false,
+				Type:      model.NotificationTypeReservation,
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
 			}
 
 			if err := s.notificationRepo.Create(tx, notification); err != nil {
@@ -113,11 +116,14 @@ func (s *BatchService) processPendingReservations() error {
 			}
 
 			// 予約確定通知を作成
-			notification := &model.Notification{
-				UserID:  reservation.UserID,
-				Title:   "予約確定",
-				Message: fmt.Sprintf("ペットID %s の予約が確定しました。予約日時: %s", reservation.PetID, reservation.ReservationDateTime.Format("2006-01-02 15:04:05")),
-				IsRead:  false,
+			notification := &model.NotificationRecord{
+				UserID:    reservation.UserID,
+				Title:     "予約確定",
+				Message:   fmt.Sprintf("ペットID %s の予約が確定しました。予約日時: %s", reservation.PetID, reservation.ReservationDateTime.Format("2006-01-02 15:04:05")),
+				IsRead:    false,
+				Type:      model.NotificationTypeReservation,
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
 			}
 
 			if err := s.notificationRepo.Create(tx, notification); err != nil {

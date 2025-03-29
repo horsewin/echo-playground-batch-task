@@ -155,10 +155,10 @@ func (s *ReservationBatchService) processReservationsByStatus(status string) ([]
 
 		// 成功した予約のイベントを収集
 		events = append(events, model.ReservationEvent{
-			UserID:              reservation.UserID,
-			ReservationDateTime: reservation.ReservationDateTime,
-			PetID:               reservation.PetID,
-			CreatedAt:           reservation.CreatedAt,
+			UserID:    reservation.UserID,
+			DateTime:  reservation.ReservationDateTime,
+			PetID:     reservation.PetID,
+			CreatedAt: reservation.CreatedAt,
 		})
 	}
 
@@ -173,12 +173,18 @@ func (s *ReservationBatchService) sendTaskSuccess(ctx context.Context, events []
 		return nil
 	}
 
-	// イベントをJSONに変換
+	// イベントを通知形式に変換
+	notifications := make([]model.Notification, len(events))
+	for i, event := range events {
+		notifications[i] = model.NewReservationNotification(event)
+	}
+
+	// 通知をJSONに変換
 	output, err := json.Marshal(map[string]any{
-		"events": events,
+		"notifications": notifications,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to marshal events: %w", err)
+		return fmt.Errorf("failed to marshal notifications: %w", err)
 	}
 
 	// タスクトークンを設定から取得
@@ -198,6 +204,6 @@ func (s *ReservationBatchService) sendTaskSuccess(ctx context.Context, events []
 		return fmt.Errorf("failed to send task success: %w", err)
 	}
 
-	log.Printf("Successfully sent task success with events: %s", string(output))
+	log.Printf("Successfully sent task success with notifications: %s", string(output))
 	return nil
 }

@@ -16,8 +16,8 @@ type Reservation struct {
 
 // ReservationEvent は予約処理完了時に発行されるイベントの構造体
 type ReservationEvent struct {
-	UserID              string    `json:"user_id"`
-	ReservationDateTime time.Time `json:"reservation_date_time"`
-	PetID               string    `json:"pet_id"`
-	CreatedAt           time.Time `json:"created_at"`
+	UserID    string    `json:"user_id"`
+	DateTime  time.Time `json:"date_time"`
+	PetID     string    `json:"pet_id"`
+	CreatedAt time.Time `json:"created_at"`
 }
