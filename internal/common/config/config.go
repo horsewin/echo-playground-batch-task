@@ -16,7 +16,7 @@ type Config struct {
 }
 
 // LoadConfig は設定を読み込みます
-func LoadConfig() (*Config, error) {
+func LoadConfig(taskToken string) (*Config, error) {
 	cfg := &Config{
 		DB: database.Config{
 			Host:     getEnvOrDefault("DB_HOST", "localhost"),
@@ -28,7 +28,7 @@ func LoadConfig() (*Config, error) {
 		SFN: struct {
 			TaskToken string
 		}{
-			TaskToken: getEnvOrDefault("SFN_TASK_TOKEN", ""),
+			TaskToken: taskToken,
 		},
 	}
 

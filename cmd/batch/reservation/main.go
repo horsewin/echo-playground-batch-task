@@ -21,8 +21,18 @@ func main() {
 	timeout := flag.Duration("timeout", 5*time.Minute, "バッチ処理のタイムアウト時間")
 	flag.Parse()
 
+	// 最後の引数として渡されたタスクトークンを取得
+	// ENV=LOCALの場合はタスクトークンを取得しない
+	taskToken := "DUMMY_TASK_TOKEN"
+	if os.Getenv("ENV") != "LOCAL" {
+		taskToken = flag.Arg(len(flag.Args()) - 1)
+		if taskToken == "" {
+			log.Fatalf("Task token is required")
+		}
+	}
+
 	// 設定の読み込み
-	cfg, err := config.LoadConfig()
+	cfg, err := config.LoadConfig(taskToken)
 	if err != nil {
 		log.Fatalf("Failed to load config: %v\nStack trace:\n%s", err, debug.Stack())
 	}

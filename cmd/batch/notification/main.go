@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"syscall"
 	"time"
 
@@ -17,23 +18,21 @@ import (
 )
 
 func main() {
-	// コマンドライン引数のパース
-	taskToken := flag.String("task-token", "", "Step Functions task token")
-	flag.Parse()
-
-	// タスクトークンの検証
-	if *taskToken == "" {
-		log.Fatal("Task token is required")
+	// 最後の引数として渡されたタスクトークンを取得
+	// ENV=LOCALの場合はタスクトークンを取得しない
+	taskToken := "DUMMY_TASK_TOKEN"
+	if os.Getenv("ENV") != "LOCAL" {
+		taskToken = flag.Arg(len(flag.Args()) - 1)
+		if taskToken == "" {
+			log.Fatalf("Task token is required")
+		}
 	}
 
-	// 設定を読み込む
-	cfg, err := config.LoadConfig()
+	// 設定の読み込み
+	cfg, err := config.LoadConfig(taskToken)
 	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+		log.Fatalf("Failed to load config: %v\nStack trace:\n%s", err, debug.Stack())
 	}
-
-	// タスクトークンを設定に反映
-	cfg.SFN.TaskToken = *taskToken
 
 	// 通知バッチサービスを作成
 	notificationService, err := batch.NewNotificationBatchService(cfg)
@@ -53,7 +52,7 @@ func main() {
 	// 通知バッチ処理を実行
 	go func() {
 		// タスクトークンから通知データを生成
-		notifications, err := generateNotificationsFromTaskToken(*taskToken)
+		notifications, err := generateNotificationsFromTaskToken(taskToken)
 		if err != nil {
 			log.Printf("Failed to generate notifications: %v", err)
 			cancel()
