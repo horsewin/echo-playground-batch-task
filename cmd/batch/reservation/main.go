@@ -27,6 +27,8 @@ func main() {
 		log.Fatalf("Failed to load config: %v\nStack trace:\n%s", err, debug.Stack())
 	}
 
+	log.Printf("Env mode: %s", os.Getenv("ENV"))
+
 	// サービスの初期化
 	service, err := batch.NewReservationBatchService(cfg)
 	if err != nil {

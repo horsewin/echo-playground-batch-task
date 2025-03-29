@@ -1,36 +1,38 @@
-# ビルドステージ
-FROM golang:1.21-alpine AS builder
+# Multi stage building strategy for reducing image size.
+FROM public.ecr.aws/docker/library/golang:1.23.4 AS builder
+ENV GO111MODULE=on \
+    GOPATH=/go \
+    GOBIN=/go/bin \
+    PATH=/go/bin:$PATH
 
+# Set working directory
 WORKDIR /app
 
-# 依存関係のコピーとダウンロード
+# Install each dependencies
 COPY go.mod go.sum ./
 RUN go mod download
 
-# ソースコードのコピー
-COPY . .
+# Install golangci-lint
+RUN go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.63.4
 
-# アプリケーションのビルド
-RUN CGO_ENABLED=0 GOOS=linux go build -o /app/bin/reservation-batch cmd/batch/reservation/main.go
+# COPY main module
+COPY . /app
 
-# 実行ステージ
-FROM alpine:latest
+# Check and Build
+RUN make validate && \
+    make build-linux
+
+########################################################
+# Execution Stage
+########################################################
+### If use TLS connection in container, add ca-certificates following command.
+### > RUN apt-get update && apt-get install -y ca-certificates
+FROM gcr.io/distroless/base-debian12
 
 WORKDIR /app
 
-# ビルドしたバイナリをコピー
-COPY --from=builder /app/bin/reservation-batch .
+# Copy the built binary
+COPY --from=builder /app/bin/batch/reservation-batch .
 
-# 実行ユーザーの設定
-RUN adduser -D -g '' appuser
-USER appuser
-
-# 環境変数の設定
-ENV DB_HOST=localhost \
-    DB_PORT=5432 \
-    DB_USER=postgres \
-    DB_PASSWORD=postgres \
-    DB_NAME=echo_playground
-
-# エントリーポイントの設定
-ENTRYPOINT ["./reservation-batch"] 
+# Set entrypoint
+ENTRYPOINT ["./batch"] 

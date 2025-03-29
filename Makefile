@@ -6,6 +6,10 @@ BUILD_DIR     = bin
 # allターゲットでは「validate → build → run」を一括実行
 all: validate build run
 
+local-all: validate build
+	@echo "==> Running with ENV=LOCAL..."
+	@ENV=LOCAL $(BUILD_DIR)/reservation-batch
+
 # ビルド
 build:
 	go build -ldflags "-s -w" -o $(BUILD_DIR)/reservation-batch cmd/batch/reservation/main.go

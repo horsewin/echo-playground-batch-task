@@ -9,7 +9,10 @@ import (
 )
 
 type Config struct {
-	DB database.Config
+	DB  database.Config
+	SFN struct {
+		TaskToken string
+	}
 }
 
 func Load() (*Config, error) {
@@ -20,6 +23,11 @@ func Load() (*Config, error) {
 			User:     getEnvOrDefault("DB_USERNAME", "sbcntrapp"),
 			Password: getEnvOrDefault("DB_PASSWORD", "password"),
 			DBName:   getEnvOrDefault("DB_NAME", "sbcntrapp"),
+		},
+		SFN: struct {
+			TaskToken string
+		}{
+			TaskToken: getEnvOrDefault("SFN_TASK_TOKEN", ""),
 		},
 	}
 

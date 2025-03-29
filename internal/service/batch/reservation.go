@@ -2,20 +2,28 @@ package batch
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"runtime/debug"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/sfn"
 	"github.com/horsewin/echo-playground-batch-task/internal/common/config"
 	"github.com/horsewin/echo-playground-batch-task/internal/common/database"
 	"github.com/horsewin/echo-playground-batch-task/internal/common/utils"
+	"github.com/horsewin/echo-playground-batch-task/internal/model"
 	"github.com/horsewin/echo-playground-batch-task/internal/repository"
 )
 
 type ReservationBatchService struct {
 	db              *database.DB
 	reservationRepo *repository.ReservationRepository
+	sfnClient       *sfn.Client
+	cfg             *config.Config
 }
 
 // NewReservationBatchService ... 予約バッチサービスを作成する
@@ -25,9 +33,24 @@ func NewReservationBatchService(cfg *config.Config) (*ReservationBatchService, e
 		return nil, fmt.Errorf("failed to create database connection: %w", err)
 	}
 
+	var sfnClient *sfn.Client
+	// ローカル環境以外の場合のみAWS SDKの設定を行う
+	if os.Getenv("ENV") != "LOCAL" {
+		// AWS SDKの設定を読み込む
+		awsCfg, err := awsconfig.LoadDefaultConfig(context.Background())
+		if err != nil {
+			return nil, fmt.Errorf("failed to load AWS config: %w", err)
+		}
+
+		// Step Functionsクライアントを作成
+		sfnClient = sfn.NewFromConfig(awsCfg)
+	}
+
 	return &ReservationBatchService{
 		db:              db,
 		reservationRepo: repository.NewReservationRepository(db.DB),
+		sfnClient:       sfnClient,
+		cfg:             cfg,
 	}, nil
 }
 
@@ -47,8 +70,14 @@ func (s *ReservationBatchService) Run(ctx context.Context) error {
 	startTime := time.Now()
 
 	// バッチ処理を実行
-	if err := s.processReservationsByStatus("pending"); err != nil {
+	events, err := s.processReservationsByStatus("pending")
+	if err != nil {
 		return utils.GetStackWithError(fmt.Errorf("failed to process pending reservations: %w", err))
+	}
+
+	// イベントを発行
+	if err := s.sendTaskSuccess(ctx, events); err != nil {
+		return utils.GetStackWithError(fmt.Errorf("failed to send task success: %w", err))
 	}
 
 	// 処理終了時刻を記録し、実行時間を計算
@@ -60,14 +89,17 @@ func (s *ReservationBatchService) Run(ctx context.Context) error {
 }
 
 // processReservationsByStatus は、指定されたステータスの予約を処理します
-func (s *ReservationBatchService) processReservationsByStatus(status string) error {
+func (s *ReservationBatchService) processReservationsByStatus(status string) ([]model.ReservationEvent, error) {
 	// 指定されたステータスの予約を取得
 	reservations, err := s.reservationRepo.GetReservationsByStatus(status)
 	if err != nil {
-		return utils.GetStackWithError(fmt.Errorf("failed to get reservations with status %s: %w", status, err))
+		return nil, utils.GetStackWithError(fmt.Errorf("failed to get reservations with status %s: %w", status, err))
 	}
 
 	log.Printf("Found %d reservations with status %s", len(reservations), status)
+
+	// 成功した予約のイベントを収集
+	var events []model.ReservationEvent
 
 	for _, reservation := range reservations {
 		// トランザクション開始
@@ -121,8 +153,51 @@ func (s *ReservationBatchService) processReservationsByStatus(status string) err
 			continue
 		}
 
-		log.Printf("Successfully processed reservation %d", reservation.ReservationID)
+		// 成功した予約のイベントを収集
+		events = append(events, model.ReservationEvent{
+			UserID:              reservation.UserID,
+			ReservationDateTime: reservation.ReservationDateTime,
+			PetID:               reservation.PetID,
+			CreatedAt:           reservation.CreatedAt,
+		})
 	}
 
+	return events, nil
+}
+
+// sendTaskSuccess は、Step Functionsのタスク成功を通知し、イベントを返却します
+func (s *ReservationBatchService) sendTaskSuccess(ctx context.Context, events []model.ReservationEvent) error {
+	// ローカルの場合はStep Functionsの処理をスキップ
+	if os.Getenv("ENV") == "LOCAL" {
+		log.Printf("Local environment detected. Skipping Step Functions task success notification. Events: %+v", events)
+		return nil
+	}
+
+	// イベントをJSONに変換
+	output, err := json.Marshal(map[string]any{
+		"events": events,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to marshal events: %w", err)
+	}
+
+	// タスクトークンを設定から取得
+	taskToken := s.cfg.SFN.TaskToken
+	if taskToken == "" && os.Getenv("ENV") != "LOCAL" {
+		return fmt.Errorf("SFN_TASK_TOKEN is not set in config")
+	}
+
+	// SendTaskSuccess APIを呼び出す
+	input := &sfn.SendTaskSuccessInput{
+		TaskToken: &taskToken,
+		Output:    aws.String(string(output)),
+	}
+
+	_, err = s.sfnClient.SendTaskSuccess(ctx, input)
+	if err != nil {
+		return fmt.Errorf("failed to send task success: %w", err)
+	}
+
+	log.Printf("Successfully sent task success with events: %s", string(output))
 	return nil
 }
