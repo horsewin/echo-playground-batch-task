@@ -1,24 +1,24 @@
 package repository
 
 import (
-	"database/sql"
 	"fmt"
 	"time"
 
 	"github.com/horsewin/echo-playground-batch-task/internal/common/models"
+	"github.com/jmoiron/sqlx"
 )
 
 type ReservationRepository struct {
-	db *sql.DB
+	db *sqlx.DB
 }
 
-func NewReservationRepository(db *sql.DB) *ReservationRepository {
+func NewReservationRepository(db *sqlx.DB) *ReservationRepository {
 	return &ReservationRepository{db: db}
 }
 
 // BeginTx starts a new transaction
-func (r *ReservationRepository) BeginTx() (*sql.Tx, error) {
-	return r.db.Begin()
+func (r *ReservationRepository) BeginTx() (*sqlx.Tx, error) {
+	return r.db.Beginx()
 }
 
 // GetReservationsByStatus は、指定されたステータスの予約を取得します
@@ -73,7 +73,7 @@ func (r *ReservationRepository) GetReservationsByStatus(status string) ([]models
 }
 
 // UpdateStatus は予約のステータスを更新します
-func (r *ReservationRepository) UpdateStatus(tx *sql.Tx, reservationID int64, status string) error {
+func (r *ReservationRepository) UpdateStatus(tx *sqlx.Tx, reservationID int64, status string) error {
 	query := `
 		UPDATE reservations
 		SET status = $1,

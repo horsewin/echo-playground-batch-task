@@ -2,7 +2,6 @@ package batch
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log"
 	"time"
@@ -11,12 +10,13 @@ import (
 	"github.com/horsewin/echo-playground-batch-task/internal/common/database"
 	"github.com/horsewin/echo-playground-batch-task/internal/model"
 	"github.com/horsewin/echo-playground-batch-task/internal/repository"
+	"github.com/jmoiron/sqlx"
 )
 
 // NotificationRepository は通知の永続化を担当するインターフェースです
 type NotificationRepository interface {
 	CreateNotifications(records []model.NotificationRecord) error
-	Create(tx *sql.Tx, record *model.NotificationRecord) error
+	Create(tx *sqlx.Tx, record *model.NotificationRecord) error
 }
 
 // NotificationBatchService は通知バッチ処理を担当します

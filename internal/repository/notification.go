@@ -1,19 +1,19 @@
 package repository
 
 import (
-	"database/sql"
 	"fmt"
 
 	"github.com/horsewin/echo-playground-batch-task/internal/model"
+	"github.com/jmoiron/sqlx"
 )
 
 // NotificationRepository は通知の永続化を担当します
 type NotificationRepository struct {
-	db *sql.DB
+	db *sqlx.DB
 }
 
 // NewNotificationRepository は新しいNotificationRepositoryを作成します
-func NewNotificationRepository(db *sql.DB) *NotificationRepository {
+func NewNotificationRepository(db *sqlx.DB) *NotificationRepository {
 	return &NotificationRepository{
 		db: db,
 	}
@@ -21,7 +21,7 @@ func NewNotificationRepository(db *sql.DB) *NotificationRepository {
 
 // CreateNotifications は複数の通知レコードを作成します
 func (r *NotificationRepository) CreateNotifications(records []model.NotificationRecord) error {
-	tx, err := r.db.Begin()
+	tx, err := r.db.Beginx()
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
@@ -55,7 +55,7 @@ func (r *NotificationRepository) CreateNotifications(records []model.Notificatio
 }
 
 // Create は単一の通知レコードを作成します
-func (r *NotificationRepository) Create(tx *sql.Tx, record *model.NotificationRecord) error {
+func (r *NotificationRepository) Create(tx *sqlx.Tx, record *model.NotificationRecord) error {
 	query := `
 		INSERT INTO notifications (
 			user_id, title, message, is_read, type, created_at, updated_at
@@ -77,8 +77,8 @@ func (r *NotificationRepository) Create(tx *sql.Tx, record *model.NotificationRe
 }
 
 // BeginTx は新しいトランザクションを開始します
-func (r *NotificationRepository) BeginTx() (*sql.Tx, error) {
-	return r.db.Begin()
+func (r *NotificationRepository) BeginTx() (*sqlx.Tx, error) {
+	return r.db.Beginx()
 }
 
 // GetByUserID は指定されたユーザーIDの通知を取得します
@@ -122,7 +122,7 @@ func (r *NotificationRepository) GetByUserID(userID string) ([]model.Notificatio
 }
 
 // UpdateIsRead は通知の既読状態を更新します
-func (r *NotificationRepository) UpdateIsRead(tx *sql.Tx, id int, isRead bool) error {
+func (r *NotificationRepository) UpdateIsRead(tx *sqlx.Tx, id int, isRead bool) error {
 	query := `
 		UPDATE notifications
 		SET is_read = $1, updated_at = CURRENT_TIMESTAMP

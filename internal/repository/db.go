@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"database/sql"
 	"fmt"
 	"time"
 
@@ -22,7 +21,7 @@ type DBConfig struct {
 	SSLMode  string
 }
 
-func NewDB(cfg *DBConfig) (*sql.DB, error) {
+func NewDB(cfg *DBConfig) (*DB, error) {
 	dsn := fmt.Sprintf(
 		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
 		cfg.Host,
@@ -33,7 +32,7 @@ func NewDB(cfg *DBConfig) (*sql.DB, error) {
 		cfg.SSLMode,
 	)
 
-	db, err := sql.Open("postgres", dsn)
+	db, err := sqlx.Connect("postgres", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
@@ -48,7 +47,7 @@ func NewDB(cfg *DBConfig) (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	return db, nil
+	return &DB{db}, nil
 }
 
 // Close closes the database connection
@@ -57,6 +56,6 @@ func (db *DB) Close() error {
 }
 
 // BeginTx starts a new transaction
-func (db *DB) BeginTx() (*sql.Tx, error) {
-	return db.DB.Begin()
+func (db *DB) BeginTx() (*sqlx.Tx, error) {
+	return db.DB.Beginx()
 }

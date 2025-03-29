@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 )
 
 type DB struct {
-	*sql.DB
+	*sqlx.DB
 }
 
 type Config struct {
@@ -45,5 +46,5 @@ func NewDB(cfg Config) (*DB, error) {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	return &DB{db}, nil
+	return &DB{sqlx.NewDb(db, "postgres")}, nil
 }

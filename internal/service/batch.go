@@ -25,8 +25,8 @@ func NewBatchService(cfg *config.Config) *BatchService {
 
 	return &BatchService{
 		config:           cfg,
-		reservationRepo:  repository.NewReservationRepository(db),
-		notificationRepo: repository.NewNotificationRepository(db),
+		reservationRepo:  repository.NewReservationRepository(db.DB),
+		notificationRepo: repository.NewNotificationRepository(db.DB),
 	}
 }
 

@@ -2,12 +2,12 @@ package batch
 
 import (
 	"context"
-	"database/sql"
 	"testing"
 	"time"
 
 	"github.com/horsewin/echo-playground-batch-task/internal/common/config"
 	"github.com/horsewin/echo-playground-batch-task/internal/model"
+	"github.com/jmoiron/sqlx"
 )
 
 // MockNotificationRepository はテスト用のモックリポジトリです
@@ -23,7 +23,7 @@ func (m *MockNotificationRepository) CreateNotifications(records []model.Notific
 	return m.createNotificationsError
 }
 
-func (m *MockNotificationRepository) Create(tx *sql.Tx, record *model.NotificationRecord) error {
+func (m *MockNotificationRepository) Create(tx *sqlx.Tx, record *model.NotificationRecord) error {
 	return nil
 }
 

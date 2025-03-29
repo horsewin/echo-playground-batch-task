@@ -3,6 +3,9 @@
 # ビルド後の出力先ディレクトリ
 BUILD_DIR     = bin
 
+# バッチ処理の全量
+BATCHES = reservation notification
+
 # allターゲットでは「validate → build → run」を一括実行
 all: validate build run
 
@@ -13,8 +16,21 @@ local-all: validate build
 
 # ビルド
 build:
-	go build -ldflags "-s -w" -o $(BUILD_DIR)/reservation-batch cmd/batch/reservation/main.go
-	go build -ldflags "-s -w" -o $(BUILD_DIR)/notification-batch cmd/batch/notification/main.go
+	@if [ -z "$(BATCH)" ]; then \
+		echo "==> Building all batch processes"; \
+		for batch_type in $(BATCHES); do \
+			echo "Building $$batch_type batch..."; \
+			go build -ldflags "-s -w" -o $(BUILD_DIR)/$$batch_type-batch cmd/batch/$$batch_type/main.go; \
+		done; \
+	elif [ -f "cmd/batch/$(BATCH)/main.go" ]; then \
+		echo "==> Building $(BATCH) batch only"; \
+		go build -ldflags "-s -w" -o $(BUILD_DIR)/$(BATCH)-batch cmd/batch/$(BATCH)/main.go; \
+	else \
+		echo "==> Unknown batch type: $(BATCH). Please ensure cmd/batch/$(BATCH)/main.go exists."; \
+		echo "==> Available batch types:"; \
+		find cmd/batch -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | sort; \
+		exit 1; \
+	fi
 
 # クリーンアップ
 clean:
