@@ -58,8 +58,23 @@ validate:
 # 実行
 ##
 run:
-	@echo "==> Running..."
-	@$(BUILD_DIR)/reservation-batch
+	@if [ -z "$(BATCH)" ]; then \
+		echo "==> Running all batch processes"; \
+		for batch_type in $(BATCHES); do \
+			echo "Running $$batch_type batch..."; \
+			$(BUILD_DIR)/$$batch_type-batch; \
+		done; \
+	elif [ -f "$(BUILD_DIR)/$(BATCH)-batch" ]; then \
+		echo "==> Running $(BATCH) batch only"; \
+		$(BUILD_DIR)/$(BATCH)-batch; \
+	else \
+		echo "==> Unknown batch type: $(BATCH). Please ensure $(BUILD_DIR)/$(BATCH)-batch exists."; \
+		echo "==> Available batch types:"; \
+		for batch_type in $(BATCHES); do \
+			echo "  - $$batch_type"; \
+		done; \
+		exit 1; \
+	fi
 
 ##
 # テスト (validate でも実行しているが、個別でも呼び出せるように)
