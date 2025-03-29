@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sfn"
 	"github.com/horsewin/echo-playground-batch-task/internal/common/config"
 	"github.com/horsewin/echo-playground-batch-task/internal/common/database"
@@ -27,23 +26,10 @@ type ReservationBatchService struct {
 }
 
 // NewReservationBatchService ... 予約バッチサービスを作成する
-func NewReservationBatchService(cfg *config.Config) (*ReservationBatchService, error) {
+func NewReservationBatchService(cfg *config.Config, sfnClient *sfn.Client) (*ReservationBatchService, error) {
 	db, err := database.NewDB(cfg.DB)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create database connection: %w", err)
-	}
-
-	var sfnClient *sfn.Client
-	// ローカル環境以外の場合のみAWS SDKの設定を行う
-	if os.Getenv("ENV") != "LOCAL" {
-		// AWS SDKの設定を読み込む
-		awsCfg, err := awsconfig.LoadDefaultConfig(context.Background())
-		if err != nil {
-			return nil, fmt.Errorf("failed to load AWS config: %w", err)
-		}
-
-		// Step Functionsクライアントを作成
-		sfnClient = sfn.NewFromConfig(awsCfg)
 	}
 
 	return &ReservationBatchService{
@@ -195,7 +181,7 @@ func (s *ReservationBatchService) sendTaskSuccess(ctx context.Context, events []
 
 	// SendTaskSuccess APIを呼び出す
 	input := &sfn.SendTaskSuccessInput{
-		TaskToken: &taskToken,
+		TaskToken: aws.String(taskToken),
 		Output:    aws.String(string(output)),
 	}
 

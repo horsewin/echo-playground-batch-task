@@ -11,6 +11,9 @@ import (
 
 	"runtime/debug"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/sfn"
 	"github.com/horsewin/echo-playground-batch-task/internal/common/config"
 	"github.com/horsewin/echo-playground-batch-task/internal/common/utils"
 	"github.com/horsewin/echo-playground-batch-task/internal/service/batch"
@@ -37,10 +40,21 @@ func main() {
 		log.Fatalf("Failed to load config: %v\nStack trace:\n%s", err, debug.Stack())
 	}
 
+	log.Printf("Task token: %s", taskToken)
 	log.Printf("Env mode: %s", os.Getenv("ENV"))
 
+	// Step Functionsクライアントの初期化
+	var sfnClient *sfn.Client
+	if os.Getenv("ENV") != "LOCAL" {
+		awsCfg, err := awsconfig.LoadDefaultConfig(context.Background())
+		if err != nil {
+			log.Fatalf("Failed to load AWS config: %v\nStack trace:\n%s", err, debug.Stack())
+		}
+		sfnClient = sfn.NewFromConfig(awsCfg)
+	}
+
 	// サービスの初期化
-	service, err := batch.NewReservationBatchService(cfg)
+	service, err := batch.NewReservationBatchService(cfg, sfnClient)
 	if err != nil {
 		log.Fatalf("Failed to create service: %v\nStack trace:\n%s", err, debug.Stack())
 	}
@@ -68,6 +82,19 @@ func main() {
 	case err := <-errChan:
 		if err != nil {
 			log.Printf("Batch process failed: %v\nStack trace:\n%s", err, debug.Stack())
+
+			// ローカル環境以外の場合のみStep Functionsのエラー通知を行う
+			if os.Getenv("ENV") != "LOCAL" && sfnClient != nil {
+				input := &sfn.SendTaskFailureInput{
+					TaskToken: aws.String(taskToken),
+					Error:     aws.String("Batch process failed"),
+				}
+
+				_, err := sfnClient.SendTaskFailure(ctx, input)
+				if err != nil {
+					log.Printf("Failed to send task failure: %v\nStack trace:\n%s", err, debug.Stack())
+				}
+			}
 			os.Exit(1)
 		}
 		log.Println("Batch process completed successfully")
