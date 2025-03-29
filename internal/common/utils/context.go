@@ -6,8 +6,8 @@ import (
 	"time"
 )
 
-// RunWithTimeout は、指定されたタイムアウト時間内でバッチ処理を実行します。
-// タイムアウトを超えた場合は、コンテキストをキャンセルしてエラーを返します。
+// 指定されたタイムアウト時間内でバッチ処理を実行する
+// タイムアウトを超えた場合は、コンテキストをキャンセルしてエラーを返す
 func RunWithTimeout(ctx context.Context, timeout time.Duration, fn func(context.Context) error) error {
 	// タイムアウト付きのコンテキストを作成
 	ctx, cancel := context.WithTimeout(ctx, timeout)

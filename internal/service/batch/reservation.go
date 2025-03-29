@@ -18,6 +18,7 @@ type ReservationBatchService struct {
 	reservationRepo *repository.ReservationRepository
 }
 
+// NewReservationBatchService ... 予約バッチサービスを作成する
 func NewReservationBatchService(cfg *config.Config) (*ReservationBatchService, error) {
 	db, err := database.NewDB(cfg.DB)
 	if err != nil {
@@ -30,6 +31,7 @@ func NewReservationBatchService(cfg *config.Config) (*ReservationBatchService, e
 	}, nil
 }
 
+// Close ... 終了処理
 func (s *ReservationBatchService) Close() error {
 	if s.db != nil {
 		return s.db.Close()
@@ -37,6 +39,7 @@ func (s *ReservationBatchService) Close() error {
 	return nil
 }
 
+// Run ... 予約バッチ処理を実行する
 func (s *ReservationBatchService) Run(ctx context.Context) error {
 	log.Println("Starting reservation batch process...")
 
@@ -44,7 +47,7 @@ func (s *ReservationBatchService) Run(ctx context.Context) error {
 	startTime := time.Now()
 
 	// バッチ処理を実行
-	if err := s.processPendingReservations(); err != nil {
+	if err := s.processReservationsByStatus("pending"); err != nil {
 		return utils.GetStackWithError(fmt.Errorf("failed to process pending reservations: %w", err))
 	}
 
@@ -56,12 +59,15 @@ func (s *ReservationBatchService) Run(ctx context.Context) error {
 	return nil
 }
 
-func (s *ReservationBatchService) processPendingReservations() error {
-	// 保留中の予約を取得
-	reservations, err := s.reservationRepo.GetPendingReservations()
+// processReservationsByStatus は、指定されたステータスの予約を処理します
+func (s *ReservationBatchService) processReservationsByStatus(status string) error {
+	// 指定されたステータスの予約を取得
+	reservations, err := s.reservationRepo.GetReservationsByStatus(status)
 	if err != nil {
-		return utils.GetStackWithError(fmt.Errorf("failed to get pending reservations: %w", err))
+		return utils.GetStackWithError(fmt.Errorf("failed to get reservations with status %s: %w", status, err))
 	}
+
+	log.Printf("Found %d reservations with status %s", len(reservations), status)
 
 	for _, reservation := range reservations {
 		// トランザクション開始

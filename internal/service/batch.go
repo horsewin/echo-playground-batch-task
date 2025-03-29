@@ -52,7 +52,7 @@ func (s *BatchService) Run(ctx context.Context) error {
 
 func (s *BatchService) processPendingReservations() error {
 	// 保留中の予約を取得
-	reservations, err := s.reservationRepo.GetPendingReservations()
+	reservations, err := s.reservationRepo.GetReservationsByStatus("pending")
 	if err != nil {
 		return fmt.Errorf("failed to get pending reservations: %w", err)
 	}

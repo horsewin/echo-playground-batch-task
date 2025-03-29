@@ -21,8 +21,8 @@ func (r *ReservationRepository) BeginTx() (*sql.Tx, error) {
 	return r.db.Begin()
 }
 
-// GetPendingReservations は、ステータスがpendingの予約を取得します
-func (r *ReservationRepository) GetPendingReservations() ([]models.Reservation, error) {
+// GetReservationsByStatus は、指定されたステータスの予約を取得します
+func (r *ReservationRepository) GetReservationsByStatus(status string) ([]models.Reservation, error) {
 	query := `
 		SELECT 
 			id,
@@ -35,13 +35,13 @@ func (r *ReservationRepository) GetPendingReservations() ([]models.Reservation, 
 			updated_at,
 			status
 		FROM reservations
-		WHERE status = 'pending'
+		WHERE status = $1
 		ORDER BY reservation_date_time ASC
 	`
 
-	rows, err := r.db.Query(query)
+	rows, err := r.db.Query(query, status)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query pending reservations: %w", err)
+		return nil, fmt.Errorf("failed to query reservations with status %s: %w", status, err)
 	}
 	defer rows.Close()
 
