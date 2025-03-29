@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"log"
 	"os"
 	"os/signal"
@@ -14,12 +13,8 @@ import (
 )
 
 func main() {
-	// 設定ファイルのパスを取得
-	configPath := flag.String("config", "config/config.yaml", "path to config file")
-	flag.Parse()
-
 	// 設定を読み込む
-	cfg, err := config.LoadConfig(*configPath)
+	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}

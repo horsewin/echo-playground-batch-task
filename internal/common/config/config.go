@@ -1,32 +1,52 @@
 package config
 
 import (
-	"fmt"
+	"log"
 	"os"
+	"strconv"
 
 	"github.com/horsewin/echo-playground-batch-task/internal/common/database"
-	"gopkg.in/yaml.v3"
 )
 
-// Config はアプリケーションの設定を表します
 type Config struct {
-	DB  database.Config `yaml:"db"`
+	DB  database.Config
 	SFN struct {
-		TaskToken string `yaml:"task_token"`
-	} `yaml:"sfn"`
+		TaskToken string
+	}
 }
 
-// LoadConfig は設定ファイルを読み込みます
-func LoadConfig(path string) (*Config, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read config file: %w", err)
+func Load() (*Config, error) {
+	cfg := &Config{
+		DB: database.Config{
+			Host:     getEnvOrDefault("DB_HOST", "localhost"),
+			Port:     getEnvAsIntOrDefault("DB_PORT", 5432),
+			UserName: getEnvOrDefault("DB_USERNAME", "sbcntrapp"),
+			Password: getEnvOrDefault("DB_PASSWORD", "password"),
+			DBName:   getEnvOrDefault("DB_NAME", "sbcntrapp"),
+		},
+		SFN: struct {
+			TaskToken string
+		}{
+			TaskToken: getEnvOrDefault("SFN_TASK_TOKEN", ""),
+		},
 	}
 
-	var cfg Config
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return nil, fmt.Errorf("failed to parse config file: %w", err)
-	}
+	return cfg, nil
+}
 
-	return &cfg, nil
+func getEnvOrDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	log.Printf("Environment variable %s is not set, using default value", key)
+	return defaultValue
+}
+
+func getEnvAsIntOrDefault(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		if intValue, err := strconv.Atoi(value); err == nil {
+			return intValue
+		}
+	}
+	return defaultValue
 }

@@ -16,7 +16,7 @@ type DB struct {
 type DBConfig struct {
 	Host     string
 	Port     int
-	User     string
+	UserName string
 	Password string
 	DBName   string
 	SSLMode  string
@@ -27,7 +27,7 @@ func NewDB(cfg *DBConfig) (*sql.DB, error) {
 		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
 		cfg.Host,
 		cfg.Port,
-		cfg.User,
+		cfg.UserName,
 		cfg.Password,
 		cfg.DBName,
 		cfg.SSLMode,
