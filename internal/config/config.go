@@ -2,53 +2,45 @@ package config
 
 import (
 	"fmt"
+	"os"
+	"strconv"
 
-	"github.com/spf13/viper"
+	"github.com/horsewin/echo-playground-batch-task/internal/repository"
 )
 
 type Config struct {
-	AppName string `mapstructure:"APP_NAME"`
-	DB      struct {
-		Host     string `mapstructure:"DB_HOST"`
-		Port     int    `mapstructure:"DB_PORT"`
-		User     string `mapstructure:"DB_USER"`
-		Password string `mapstructure:"DB_PASSWORD"`
-		DBName   string `mapstructure:"DB_NAME"`
-		SSLMode  string `mapstructure:"DB_SSL_MODE"`
-	} `mapstructure:"DB"`
-	// 必要に応じて設定項目を追加
+	DB *repository.DBConfig
 }
 
 func Load() (*Config, error) {
-	viper.SetConfigName("config")
-	viper.SetConfigType("yaml")
-	viper.AddConfigPath(".")
-	viper.AddConfigPath("./config")
+	dbConfig := &repository.DBConfig{
+		Host:     getEnvOrDefault("DB_HOST", "localhost"),
+		Port:     getEnvAsIntOrDefault("DB_PORT", 5432),
+		User:     getEnvOrDefault("DB_USER", "postgres"),
+		Password: getEnvOrDefault("DB_PASSWORD", "postgres"),
+		DBName:   getEnvOrDefault("DB_NAME", "echo_playground"),
+		SSLMode:  getEnvOrDefault("DB_SSL_MODE", "disable"),
+	}
 
-	// デフォルト値の設定
-	viper.SetDefault("APP_NAME", "echo-playground-batch-task")
-	viper.SetDefault("DB.HOST", "localhost")
-	viper.SetDefault("DB.PORT", 5432)
-	viper.SetDefault("DB.USER", "postgres")
-	viper.SetDefault("DB.PASSWORD", "postgres")
-	viper.SetDefault("DB.DBNAME", "echo_playground")
-	viper.SetDefault("DB.SSL_MODE", "disable")
+	return &Config{
+		DB: dbConfig,
+	}, nil
+}
 
-	// 環境変数の読み込み
-	viper.AutomaticEnv()
+func getEnvOrDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
 
-	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			return nil, err
+func getEnvAsIntOrDefault(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		if intValue, err := strconv.Atoi(value); err == nil {
+			return intValue
 		}
 	}
-
-	var config Config
-	if err := viper.Unmarshal(&config); err != nil {
-		return nil, err
-	}
-
-	return &config, nil
+	return defaultValue
 }
 
 // GetDSN returns the database connection string

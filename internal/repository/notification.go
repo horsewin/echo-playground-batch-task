@@ -7,25 +7,24 @@ import (
 )
 
 type NotificationRepository struct {
-	db *DB
+	db *sql.DB
 }
 
-func NewNotificationRepository(db *DB) *NotificationRepository {
+func NewNotificationRepository(db *sql.DB) *NotificationRepository {
 	return &NotificationRepository{db: db}
 }
 
-// Create は新しい通知を作成します
 func (r *NotificationRepository) Create(tx *sql.Tx, notification *model.Notification) error {
 	query := `
-		INSERT INTO notifications (user_id, title, message, is_read, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-		RETURNING id
-	`
+		INSERT INTO notifications (user_id, title, message, is_read)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id, created_at, updated_at`
+
 	return tx.QueryRow(
 		query,
 		notification.UserID,
 		notification.Title,
 		notification.Message,
 		notification.IsRead,
-	).Scan(&notification.ID)
+	).Scan(&notification.ID, &notification.CreatedAt, &notification.UpdatedAt)
 }

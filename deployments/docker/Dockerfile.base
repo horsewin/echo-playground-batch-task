@@ -11,7 +11,7 @@ RUN go mod download
 COPY . .
 
 # アプリケーションのビルド
-RUN CGO_ENABLED=0 GOOS=linux go build -o /app/bin/reservation-batch cmd/batch/reservation/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/bin/batch cmd/batch/${BATCH_NAME}/main.go
 
 # 実行ステージ
 FROM alpine:latest
@@ -19,7 +19,7 @@ FROM alpine:latest
 WORKDIR /app
 
 # ビルドしたバイナリをコピー
-COPY --from=builder /app/bin/reservation-batch .
+COPY --from=builder /app/bin/batch .
 
 # 実行ユーザーの設定
 RUN adduser -D -g '' appuser
@@ -33,4 +33,4 @@ ENV DB_HOST=localhost \
     DB_NAME=echo_playground
 
 # エントリーポイントの設定
-ENTRYPOINT ["./reservation-batch"] 
+ENTRYPOINT ["./batch"] 

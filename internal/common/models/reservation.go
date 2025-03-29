@@ -1,9 +1,10 @@
-package model
+package models
 
 import "time"
 
+// Reservation は予約情報を表す構造体です
 type Reservation struct {
-	ID                  int64     `json:"id"`
+	ReservationID       int64     `json:"id"`
 	UserID              string    `json:"user_id"`
 	UserName            string    `json:"user_name"`
 	Email               string    `json:"email"`

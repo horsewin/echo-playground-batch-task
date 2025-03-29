@@ -1,0 +1,14 @@
+# ベースイメージの設定
+ARG BATCH_NAME=reservation
+FROM echo-playground-batch-task-base:latest AS base
+
+# ビルド時の引数
+ARG BATCH_NAME
+ENV BATCH_NAME=${BATCH_NAME}
+
+# ベースイメージの内容をコピー
+COPY --from=base /app/batch /app/batch
+COPY --from=base /app/appuser /app/appuser
+
+# エントリーポイントの設定
+ENTRYPOINT ["./batch"] 

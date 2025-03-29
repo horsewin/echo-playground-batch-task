@@ -1,36 +1,33 @@
-package repository
+package database
 
 import (
 	"database/sql"
 	"fmt"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 )
 
 type DB struct {
-	*sqlx.DB
+	*sql.DB
 }
 
-type DBConfig struct {
+type Config struct {
 	Host     string
 	Port     int
 	User     string
 	Password string
 	DBName   string
-	SSLMode  string
 }
 
-func NewDB(cfg *DBConfig) (*sql.DB, error) {
+func NewDB(cfg Config) (*DB, error) {
 	dsn := fmt.Sprintf(
-		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+		"host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
 		cfg.Host,
 		cfg.Port,
 		cfg.User,
 		cfg.Password,
 		cfg.DBName,
-		cfg.SSLMode,
 	)
 
 	db, err := sql.Open("postgres", dsn)
@@ -38,7 +35,7 @@ func NewDB(cfg *DBConfig) (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
-	// 接続プールの設定
+	// コネクションプールの設定
 	db.SetMaxOpenConns(25)
 	db.SetMaxIdleConns(25)
 	db.SetConnMaxLifetime(5 * time.Minute)
@@ -48,15 +45,5 @@ func NewDB(cfg *DBConfig) (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	return db, nil
-}
-
-// Close closes the database connection
-func (db *DB) Close() error {
-	return db.DB.Close()
-}
-
-// BeginTx starts a new transaction
-func (db *DB) BeginTx() (*sql.Tx, error) {
-	return db.DB.Begin()
+	return &DB{db}, nil
 }

@@ -18,7 +18,7 @@ type BatchService struct {
 }
 
 func NewBatchService(cfg *config.Config) *BatchService {
-	db, err := repository.NewDB(cfg.GetDSN())
+	db, err := repository.NewDB(cfg.DB)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
@@ -56,6 +56,8 @@ func (s *BatchService) processPendingReservations() error {
 	if err != nil {
 		return fmt.Errorf("failed to get pending reservations: %w", err)
 	}
+
+	log.Printf("Found %d pending reservations", len(reservations))
 
 	for _, reservation := range reservations {
 		// トランザクション開始
