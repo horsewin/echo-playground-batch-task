@@ -32,7 +32,6 @@ func main() {
 		if taskToken == "" {
 			log.Fatalf("Task token is required")
 		}
-		log.Printf("Task token: %s", taskToken)
 	}
 
 	// 設定の読み込み
@@ -40,9 +39,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to load config: %v\nStack trace:\n%s", err, debug.Stack())
 	}
-
-	log.Printf("Task token: %s", taskToken)
-	log.Printf("Env mode: %s", os.Getenv("ENV"))
 
 	// Step Functionsクライアントの初期化
 	var sfnClient *sfn.Client
@@ -96,6 +92,7 @@ func main() {
 					log.Printf("Failed to send task failure: %v\nStack trace:\n%s", err, debug.Stack())
 				}
 			}
+
 			os.Exit(1)
 		}
 		log.Println("Batch process completed successfully")
