@@ -53,9 +53,15 @@ func (n Notification) ToNotificationRecord(petNameMap map[string]string) (*Notif
 			return nil, fmt.Errorf("pet_id not found in petNameMap")
 		}
 
+		dateTimeStr := data["date_time"].(string)
+		dateTime, err := time.Parse(time.RFC3339, dateTimeStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid date_time format: %v", err)
+		}
+
 		message := fmt.Sprintf(`予約が完了しました。見学をお楽しみください。
 予約日時: %s
-ペット名: %s`, data["date_time"], petName)
+ペット名: %s`, dateTime.Format("2006-01-02 15:04"), petName)
 
 		return &NotificationRecord{
 			UserID:    data["user_id"].(string),
