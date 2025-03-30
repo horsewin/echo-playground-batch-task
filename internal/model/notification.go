@@ -1,6 +1,9 @@
 package model
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // NotificationType は通知の種類を表します
 type NotificationType string
@@ -8,18 +11,21 @@ type NotificationType string
 const (
 	// NotificationTypeReservation は予約関連の通知を表します
 	NotificationTypeReservation NotificationType = "reservation"
+	// NotificationTypeCommon は共通の通知を表します
+	NotificationTypeCommon NotificationType = "common"
 )
 
-// Notification は共通的な通知定義です（イベント用）
+// Notification はイベントIFを受け取るための定義です
+// アプリケーションサービス層で利用されます
 type Notification struct {
 	Type      NotificationType `json:"type"`
-	UserID    string           `json:"user_id"`
 	DateTime  time.Time        `json:"date_time"`
 	CreatedAt time.Time        `json:"created_at"`
 	Data      interface{}      `json:"data"`
 }
 
-// NotificationRecord はデータベースに永続化される通知レコードです
+// NotificationRecord は通知のドメインモデルです
+// データベースに永続化される通知レコードと今回は一致しています
 type NotificationRecord struct {
 	ID        int              `db:"id"`
 	UserID    string           `db:"user_id"`
@@ -29,6 +35,38 @@ type NotificationRecord struct {
 	Type      NotificationType `db:"type"`
 	CreatedAt time.Time        `db:"created_at"`
 	UpdatedAt time.Time        `db:"updated_at"`
+}
+
+// ToNotificationRecord は通知を通知レコードに変換します
+func (n Notification) ToNotificationRecord() (*NotificationRecord, error) {
+	// Dataフィールドの型をチェック
+	if _, ok := n.Data.(map[string]interface{}); !ok {
+		return nil, fmt.Errorf("invalid notification data format")
+	}
+
+	data := n.Data.(map[string]interface{})
+
+	if n.Type == NotificationTypeReservation {
+		return &NotificationRecord{
+			UserID:    data["user_id"].(string),
+			Title:     "予約が完了しました",
+			Message:   "予約が完了しました。見学をお楽しみください。",
+			IsRead:    false,
+			Type:      NotificationTypeReservation,
+			CreatedAt: n.CreatedAt,
+			UpdatedAt: n.CreatedAt,
+		}, nil
+	}
+
+	return &NotificationRecord{
+		UserID:    data["user_id"].(string),
+		Title:     "新しい通知が届きました。",
+		Message:   "新しい通知です。",
+		IsRead:    false,
+		Type:      NotificationTypeCommon,
+		CreatedAt: n.CreatedAt,
+		UpdatedAt: n.CreatedAt,
+	}, nil
 }
 
 // NewReservationNotification は予約イベントから通知を作成します
@@ -55,20 +93,5 @@ func NewReservationNotificationRecord(event ReservationEvent) NotificationRecord
 		Type:      NotificationTypeReservation,
 		CreatedAt: now,
 		UpdatedAt: now,
-	}
-}
-
-// ToNotification は通知レコードをイベント用の通知に変換します
-func (r NotificationRecord) ToNotification() Notification {
-	return Notification{
-		Type:      r.Type,
-		UserID:    r.UserID,
-		DateTime:  r.CreatedAt,
-		CreatedAt: r.CreatedAt,
-		Data: map[string]interface{}{
-			"title":   r.Title,
-			"message": r.Message,
-			"is_read": r.IsRead,
-		},
 	}
 }

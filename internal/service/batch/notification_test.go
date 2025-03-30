@@ -44,9 +44,8 @@ func TestNotificationBatchService_Run(t *testing.T) {
 			name: "1件の通知を正常に処理",
 			notifications: []model.Notification{
 				{
-					UserID:    "user1",
 					Type:      "test",
-					Data:      map[string]interface{}{"key": "value"},
+					Data:      map[string]interface{}{"user_id": "user1", "pet_id": "pet1", "date_time": time.Now()},
 					CreatedAt: time.Now(),
 				},
 			},
@@ -57,15 +56,13 @@ func TestNotificationBatchService_Run(t *testing.T) {
 			name: "2件の通知を正常に処理",
 			notifications: []model.Notification{
 				{
-					UserID:    "user1",
 					Type:      "test1",
-					Data:      map[string]interface{}{"key": "value1"},
+					Data:      map[string]interface{}{"user_id": "user1", "pet_id": "pet1", "date_time": time.Now()},
 					CreatedAt: time.Now(),
 				},
 				{
-					UserID:    "user2",
 					Type:      "test2",
-					Data:      map[string]interface{}{"key": "value2"},
+					Data:      map[string]interface{}{"user_id": "user2", "pet_id": "pet2", "date_time": time.Now()},
 					CreatedAt: time.Now(),
 				},
 			},

@@ -65,20 +65,11 @@ func (s *NotificationBatchService) Run(ctx context.Context) error {
 	// 通知をレコードに変換
 	records := make([]model.NotificationRecord, len(notifications))
 	for i, notification := range notifications {
-		// Dataフィールドの型をチェック
-		if _, ok := notification.Data.(map[string]interface{}); !ok {
-			return fmt.Errorf("invalid notification data format")
+		record, err := notification.ToNotificationRecord()
+		if err != nil {
+			return err
 		}
-
-		records[i] = model.NotificationRecord{
-			UserID:    notification.UserID,
-			Title:     "通知",
-			Message:   "新しい通知が届きました",
-			IsRead:    false,
-			Type:      notification.Type,
-			CreatedAt: notification.CreatedAt,
-			UpdatedAt: notification.CreatedAt,
-		}
+		records[i] = *record
 	}
 
 	// 通知レコードを作成
