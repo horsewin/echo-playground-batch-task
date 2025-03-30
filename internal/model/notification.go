@@ -38,7 +38,7 @@ type NotificationRecord struct {
 }
 
 // ToNotificationRecord は通知を通知レコードに変換します
-func (n Notification) ToNotificationRecord() (*NotificationRecord, error) {
+func (n Notification) ToNotificationRecord(petNameMap map[string]string) (*NotificationRecord, error) {
 	// Dataフィールドの型をチェック
 	if _, ok := n.Data.(map[string]interface{}); !ok {
 		return nil, fmt.Errorf("invalid notification data format")
@@ -47,10 +47,20 @@ func (n Notification) ToNotificationRecord() (*NotificationRecord, error) {
 	data := n.Data.(map[string]interface{})
 
 	if n.Type == NotificationTypeReservation {
+		petId := data["pet_id"].(string)
+		petName, ok := petNameMap[petId]
+		if !ok {
+			return nil, fmt.Errorf("pet_id not found in petNameMap")
+		}
+
+		message := fmt.Sprintf(`予約が完了しました。見学をお楽しみください。
+予約日時: %s
+ペット名: %s`, data["date_time"], petName)
+
 		return &NotificationRecord{
 			UserID:    data["user_id"].(string),
 			Title:     "予約が完了しました",
-			Message:   "予約が完了しました。見学をお楽しみください。",
+			Message:   message,
 			IsRead:    false,
 			Type:      NotificationTypeReservation,
 			CreatedAt: n.CreatedAt,

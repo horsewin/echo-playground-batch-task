@@ -20,7 +20,7 @@ import (
 
 type ReservationBatchService struct {
 	db              *database.DB
-	reservationRepo *repository.ReservationRepository
+	reservationRepo *repository.ReservationRepositoryImpl
 	sfnClient       *sfn.Client
 	cfg             *config.Config
 }

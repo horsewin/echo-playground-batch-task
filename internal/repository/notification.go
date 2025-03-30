@@ -7,20 +7,26 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// NotificationRepository は通知の永続化を担当します
-type NotificationRepository struct {
+// NotificationRepository は通知の永続化を担当するインターフェースです
+type NotificationRepository interface {
+	CreateNotifications(records []model.NotificationRecord) error
+	Create(tx *sqlx.Tx, record *model.NotificationRecord) error
+}
+
+// NotificationRepositoryImpl は通知の永続化を担当します
+type NotificationRepositoryImpl struct {
 	db *sqlx.DB
 }
 
 // NewNotificationRepository は新しいNotificationRepositoryを作成します
-func NewNotificationRepository(db *sqlx.DB) *NotificationRepository {
-	return &NotificationRepository{
+func NewNotificationRepository(db *sqlx.DB) *NotificationRepositoryImpl {
+	return &NotificationRepositoryImpl{
 		db: db,
 	}
 }
 
 // CreateNotifications は複数の通知レコードを作成します
-func (r *NotificationRepository) CreateNotifications(records []model.NotificationRecord) error {
+func (r *NotificationRepositoryImpl) CreateNotifications(records []model.NotificationRecord) error {
 	tx, err := r.db.Beginx()
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -55,7 +61,7 @@ func (r *NotificationRepository) CreateNotifications(records []model.Notificatio
 }
 
 // Create は単一の通知レコードを作成します
-func (r *NotificationRepository) Create(tx *sqlx.Tx, record *model.NotificationRecord) error {
+func (r *NotificationRepositoryImpl) Create(tx *sqlx.Tx, record *model.NotificationRecord) error {
 	query := `
 		INSERT INTO notifications (
 			user_id, title, message, is_read, type, created_at, updated_at
@@ -77,12 +83,12 @@ func (r *NotificationRepository) Create(tx *sqlx.Tx, record *model.NotificationR
 }
 
 // BeginTx は新しいトランザクションを開始します
-func (r *NotificationRepository) BeginTx() (*sqlx.Tx, error) {
+func (r *NotificationRepositoryImpl) BeginTx() (*sqlx.Tx, error) {
 	return r.db.Beginx()
 }
 
 // GetByUserID は指定されたユーザーIDの通知を取得します
-func (r *NotificationRepository) GetByUserID(userID string) ([]model.NotificationRecord, error) {
+func (r *NotificationRepositoryImpl) GetByUserID(userID string) ([]model.NotificationRecord, error) {
 	query := `
 		SELECT id, user_id, title, message, is_read, type, created_at, updated_at
 		FROM notifications
@@ -122,7 +128,7 @@ func (r *NotificationRepository) GetByUserID(userID string) ([]model.Notificatio
 }
 
 // UpdateIsRead は通知の既読状態を更新します
-func (r *NotificationRepository) UpdateIsRead(tx *sqlx.Tx, id int, isRead bool) error {
+func (r *NotificationRepositoryImpl) UpdateIsRead(tx *sqlx.Tx, id int, isRead bool) error {
 	query := `
 		UPDATE notifications
 		SET is_read = $1, updated_at = CURRENT_TIMESTAMP

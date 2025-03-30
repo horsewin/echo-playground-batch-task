@@ -8,21 +8,21 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-type ReservationRepository struct {
+type ReservationRepositoryImpl struct {
 	db *sqlx.DB
 }
 
-func NewReservationRepository(db *sqlx.DB) *ReservationRepository {
-	return &ReservationRepository{db: db}
+func NewReservationRepository(db *sqlx.DB) *ReservationRepositoryImpl {
+	return &ReservationRepositoryImpl{db: db}
 }
 
 // BeginTx starts a new transaction
-func (r *ReservationRepository) BeginTx() (*sqlx.Tx, error) {
+func (r *ReservationRepositoryImpl) BeginTx() (*sqlx.Tx, error) {
 	return r.db.Beginx()
 }
 
 // GetReservationsByStatus は、指定されたステータスの予約を取得します
-func (r *ReservationRepository) GetReservationsByStatus(status string) ([]models.Reservation, error) {
+func (r *ReservationRepositoryImpl) GetReservationsByStatus(status string) ([]models.Reservation, error) {
 	query := `
 		SELECT 
 			id,
@@ -73,7 +73,7 @@ func (r *ReservationRepository) GetReservationsByStatus(status string) ([]models
 }
 
 // UpdateStatus は予約のステータスを更新します
-func (r *ReservationRepository) UpdateStatus(tx *sqlx.Tx, reservationID int64, status string) error {
+func (r *ReservationRepositoryImpl) UpdateStatus(tx *sqlx.Tx, reservationID int64, status string) error {
 	query := `
 		UPDATE reservations
 		SET status = $1,
@@ -99,7 +99,7 @@ func (r *ReservationRepository) UpdateStatus(tx *sqlx.Tx, reservationID int64, s
 }
 
 // CheckExistingReservation は、指定されたペットIDに対して予約が存在するかチェックします
-func (r *ReservationRepository) CheckExistingReservation(petID string) (bool, error) {
+func (r *ReservationRepositoryImpl) CheckExistingReservation(petID string) (bool, error) {
 	query := `
 		SELECT EXISTS (
 			SELECT 1

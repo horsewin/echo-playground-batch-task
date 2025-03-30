@@ -13,8 +13,8 @@ import (
 
 type BatchService struct {
 	config           *config.Config
-	reservationRepo  *repository.ReservationRepository
-	notificationRepo *repository.NotificationRepository
+	reservationRepo  *repository.ReservationRepositoryImpl
+	notificationRepo *repository.NotificationRepositoryImpl
 }
 
 func NewBatchService(cfg *config.Config) *BatchService {

@@ -4,26 +4,21 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"slices"
 	"time"
 
 	"github.com/horsewin/echo-playground-batch-task/internal/common/config"
 	"github.com/horsewin/echo-playground-batch-task/internal/common/database"
 	"github.com/horsewin/echo-playground-batch-task/internal/model"
 	"github.com/horsewin/echo-playground-batch-task/internal/repository"
-	"github.com/jmoiron/sqlx"
 )
-
-// NotificationRepository は通知の永続化を担当するインターフェースです
-type NotificationRepository interface {
-	CreateNotifications(records []model.NotificationRecord) error
-	Create(tx *sqlx.Tx, record *model.NotificationRecord) error
-}
 
 // NotificationBatchService は通知バッチ処理を担当します
 type NotificationBatchService struct {
 	args             []model.Notification
 	db               *database.DB
-	notificationRepo NotificationRepository
+	notificationRepo repository.NotificationRepository
+	petRepo          repository.PetRepository
 	cfg              *config.Config
 }
 
@@ -37,6 +32,7 @@ func NewNotificationBatchService(cfg *config.Config) (*NotificationBatchService,
 	return &NotificationBatchService{
 		db:               db,
 		notificationRepo: repository.NewNotificationRepository(db.DB),
+		petRepo:          repository.NewPetRepository(db.DB),
 		cfg:              cfg,
 	}, nil
 }
@@ -62,10 +58,16 @@ func (s *NotificationBatchService) Run(ctx context.Context) error {
 	// 処理開始時刻を記録
 	startTime := time.Now()
 
+	// ペット名を取得
+	petNameMap, err := s.getPetNameMap(notifications)
+	if err != nil {
+		return err
+	}
+
 	// 通知をレコードに変換
 	records := make([]model.NotificationRecord, len(notifications))
 	for i, notification := range notifications {
-		record, err := notification.ToNotificationRecord()
+		record, err := notification.ToNotificationRecord(petNameMap)
 		if err != nil {
 			return err
 		}
@@ -83,4 +85,43 @@ func (s *NotificationBatchService) Run(ctx context.Context) error {
 
 	log.Printf("Notification batch process completed successfully. Duration: %v", duration)
 	return nil
+}
+
+// 通知データに含まれる情報からペット名を取得する
+// N+1とならないように先に重複がないペットIDを取得をしておく
+// 1. 重複がないペットIDを取得
+// 2. ペットIDからペット名を取得してMapとして保持する
+func (s *NotificationBatchService) getPetNameMap(notifications []model.Notification) (map[string]string, error) {
+	petIDs := make([]string, 0)
+	petNameMap := make(map[string]string)
+	for _, notification := range notifications {
+		// Dataフィールドの型をチェック
+		data, ok := notification.Data.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("invalid notification data format")
+		}
+
+		petID, ok := data["pet_id"].(string)
+		if !ok {
+			return nil, fmt.Errorf("pet_id is not a string")
+		}
+
+		// petIDが重複している場合はスキップ
+		if slices.Contains(petIDs, petID) {
+			continue
+		}
+
+		petIDs = append(petIDs, petID)
+	}
+
+	// ペット名を取得
+	for _, petID := range petIDs {
+		petName, err := s.petRepo.GetNameByID(petID)
+		if err != nil {
+			return nil, err
+		}
+		petNameMap[petID] = petName
+	}
+
+	return petNameMap, nil
 }
