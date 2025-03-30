@@ -85,7 +85,8 @@ func TestNotificationBatchService_Run(t *testing.T) {
 				cfg:              &config.Config{},
 			}
 
-			err := service.Run(context.Background(), tt.notifications)
+			service.SetArgs(tt.notifications)
+			err := service.Run(context.Background())
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Run() error = %v, wantErr %v", err, tt.wantErr)
 			}

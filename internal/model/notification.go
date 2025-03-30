@@ -35,11 +35,11 @@ type NotificationRecord struct {
 func NewReservationNotification(event ReservationEvent) Notification {
 	return Notification{
 		Type:      NotificationTypeReservation,
-		UserID:    event.UserID,
-		DateTime:  event.DateTime,
 		CreatedAt: event.CreatedAt,
 		Data: map[string]interface{}{
-			"pet_id": event.PetID,
+			"user_id":   event.UserID,
+			"pet_id":    event.PetID,
+			"date_time": event.DateTime,
 		},
 	}
 }

@@ -21,8 +21,8 @@ import (
 
 func main() {
 	// コマンドライン引数のパース
-	timeout := flag.Duration("timeout", 5*time.Minute, "バッチ処理のタイムアウト時間")
 	flag.Parse()
+	timeout := flag.Duration("timeout", 5*time.Minute, "バッチ処理のタイムアウト時間")
 
 	// 最後の引数として渡されたタスクトークンを取得
 	// ENV=LOCALの場合はタスクトークンを取得しない

@@ -13,11 +13,16 @@ import (
 	"time"
 
 	"github.com/horsewin/echo-playground-batch-task/internal/common/config"
+	"github.com/horsewin/echo-playground-batch-task/internal/common/utils"
 	"github.com/horsewin/echo-playground-batch-task/internal/model"
 	"github.com/horsewin/echo-playground-batch-task/internal/service/batch"
 )
 
 func main() {
+	// コマンドライン引数のパース
+	flag.Parse()
+	timeout := flag.Duration("timeout", 5*time.Minute, "バッチ処理のタイムアウト時間")
+
 	// 最後の引数として渡されたタスクトークンを取得
 	// ENV=LOCALの場合はタスクトークンを取得しない
 	taskToken := "DUMMY_TASK_TOKEN"
@@ -35,11 +40,11 @@ func main() {
 	}
 
 	// 通知バッチサービスを作成
-	notificationService, err := batch.NewNotificationBatchService(cfg)
+	service, err := batch.NewNotificationBatchService(cfg)
 	if err != nil {
 		log.Fatalf("Failed to create notification batch service: %v", err)
 	}
-	defer notificationService.Close()
+	defer service.Close()
 
 	// コンテキストを作成
 	ctx, cancel := context.WithCancel(context.Background())
@@ -49,7 +54,8 @@ func main() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	// 通知バッチ処理を実行
+	// バッチ処理の実行
+	errChan := make(chan error, 1)
 	go func() {
 		// タスクトークンから通知データを生成
 		notifications, err := generateNotificationsFromTaskToken(taskToken)
@@ -59,10 +65,9 @@ func main() {
 			return
 		}
 
-		if err := notificationService.Run(ctx, notifications); err != nil {
-			log.Printf("Failed to run notification batch: %v", err)
-			cancel()
-		}
+		service.SetArgs(notifications)
+
+		errChan <- utils.RunWithTimeout(ctx, *timeout, service.Run)
 	}()
 
 	// シグナルを待機
@@ -70,8 +75,12 @@ func main() {
 	case sig := <-sigChan:
 		log.Printf("Received signal: %v", sig)
 		cancel()
-	case <-ctx.Done():
-		log.Println("Context cancelled")
+	case err := <-errChan:
+		if err != nil {
+			log.Printf("Batch process failed: %v\nStack trace:\n%s", err, debug.Stack())
+			os.Exit(1)
+		}
+		log.Println("Batch process completed successfully")
 	}
 }
 
@@ -80,25 +89,28 @@ func generateNotificationsFromTaskToken(taskToken string) ([]model.Notification,
 	// タスクトークンから通知データを取得する処理を実装
 	// この例では、タスクトークンをJSONとして解析し、通知データを生成します
 	var input struct {
-		Events []struct {
-			UserID              string    `json:"user_id"`
-			ReservationDateTime time.Time `json:"reservation_date_time"`
-			PetID               string    `json:"pet_id"`
-			CreatedAt           time.Time `json:"created_at"`
-		} `json:"events"`
+		Notifications []struct {
+			Type      string    `json:"type"`
+			CreatedAt time.Time `json:"created_at"`
+			Data      struct {
+				UserID   string    `json:"user_id"`
+				DateTime time.Time `json:"date_time"`
+				PetID    string    `json:"pet_id"`
+			} `json:"data"`
+		} `json:"notifications"`
 	}
 
 	if err := json.Unmarshal([]byte(taskToken), &input); err != nil {
 		return nil, fmt.Errorf("failed to parse task token: %w", err)
 	}
 
-	notifications := make([]model.Notification, len(input.Events))
-	for i, event := range input.Events {
+	notifications := make([]model.Notification, len(input.Notifications))
+	for i, notification := range input.Notifications {
 		notifications[i] = model.NewReservationNotification(model.ReservationEvent{
-			UserID:    event.UserID,
-			DateTime:  event.ReservationDateTime,
-			PetID:     event.PetID,
-			CreatedAt: event.CreatedAt,
+			UserID:    notification.Data.UserID,
+			DateTime:  notification.Data.DateTime,
+			PetID:     notification.Data.PetID,
+			CreatedAt: notification.CreatedAt,
 		})
 	}
 

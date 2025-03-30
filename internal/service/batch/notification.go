@@ -21,6 +21,7 @@ type NotificationRepository interface {
 
 // NotificationBatchService は通知バッチ処理を担当します
 type NotificationBatchService struct {
+	args             []model.Notification
 	db               *database.DB
 	notificationRepo NotificationRepository
 	cfg              *config.Config
@@ -48,8 +49,14 @@ func (s *NotificationBatchService) Close() error {
 	return nil
 }
 
+// setArgs は通知バッチ処理の引数を設定します
+func (s *NotificationBatchService) SetArgs(args []model.Notification) {
+	s.args = args
+}
+
 // Run は通知バッチ処理を実行します
-func (s *NotificationBatchService) Run(ctx context.Context, notifications []model.Notification) error {
+func (s *NotificationBatchService) Run(ctx context.Context) error {
+	notifications := s.args
 	log.Printf("Starting notification batch process for %d notifications...", len(notifications))
 
 	// 処理開始時刻を記録
