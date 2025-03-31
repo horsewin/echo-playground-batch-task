@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/aws-xray-sdk-go/xray"
 	"github.com/horsewin/echo-playground-batch-task/internal/common/config"
 	"github.com/horsewin/echo-playground-batch-task/internal/model"
 	"github.com/jmoiron/sqlx"
@@ -56,6 +57,11 @@ func newTestNotificationBatchService(mockNotificationRepo *MockNotificationRepos
 }
 
 func TestNotificationBatchService_Run(t *testing.T) {
+	// X-Rayのセグメントを設定
+	ctx, seg := xray.BeginSegment(context.Background(), "TestNotificationBatchService_Run")
+	defer seg.Close(nil)
+
+	now := time.Now().UTC()
 	tests := []struct {
 		name          string
 		notifications []model.Notification
@@ -73,9 +79,9 @@ func TestNotificationBatchService_Run(t *testing.T) {
 			notifications: []model.Notification{
 				{
 					Type:      model.NotificationTypeReservation,
-					Data:      map[string]interface{}{"user_id": "user1", "pet_id": "pet1", "date_time": time.Now().Format("2006-01-02 15:04:05")},
-					DateTime:  time.Now(),
-					CreatedAt: time.Now(),
+					Data:      map[string]interface{}{"user_id": "user1", "pet_id": "pet1", "date_time": now.Format(time.RFC3339)},
+					DateTime:  now,
+					CreatedAt: now,
 				},
 			},
 			mockError: nil,
@@ -86,15 +92,15 @@ func TestNotificationBatchService_Run(t *testing.T) {
 			notifications: []model.Notification{
 				{
 					Type:      model.NotificationTypeReservation,
-					Data:      map[string]interface{}{"user_id": "user1", "pet_id": "pet1", "date_time": time.Now().Format("2006-01-02 15:04:05")},
-					DateTime:  time.Now(),
-					CreatedAt: time.Now(),
+					Data:      map[string]interface{}{"user_id": "user1", "pet_id": "pet1", "date_time": now.Format(time.RFC3339)},
+					DateTime:  now,
+					CreatedAt: now,
 				},
 				{
 					Type:      model.NotificationTypeReservation,
-					Data:      map[string]interface{}{"user_id": "user2", "pet_id": "pet2", "date_time": time.Now().Format("2006-01-02 15:04:05")},
-					DateTime:  time.Now(),
-					CreatedAt: time.Now(),
+					Data:      map[string]interface{}{"user_id": "user2", "pet_id": "pet2", "date_time": now.Format(time.RFC3339)},
+					DateTime:  now,
+					CreatedAt: now,
 				},
 			},
 			mockError: nil,
@@ -113,7 +119,7 @@ func TestNotificationBatchService_Run(t *testing.T) {
 
 			service := newTestNotificationBatchService(mockNotificationRepo, mockPetRepo)
 			service.SetArgs(tt.notifications)
-			err := service.Run(context.Background())
+			err := service.Run(ctx)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Run() error = %v, wantErr %v", err, tt.wantErr)
 			}
