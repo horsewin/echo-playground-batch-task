@@ -70,6 +70,21 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// X-Rayセグメントの作成
+	if cfg.EnableTracing {
+		var seg *xray.Segment
+		ctx, seg = xray.BeginSegment(ctx, projectName)
+		defer seg.Close(nil)
+
+		// セグメントにメタデータを追加
+		if err := seg.AddMetadata("task_token", taskToken); err != nil {
+			log.Printf("Failed to add task_token metadata: %v", err)
+		}
+		if err := seg.AddMetadata("timeout", timeout.String()); err != nil {
+			log.Printf("Failed to add timeout metadata: %v", err)
+		}
+	}
+
 	// シグナルハンドリング
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)

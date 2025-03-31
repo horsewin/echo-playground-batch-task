@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/horsewin/echo-playground-batch-task/internal/common/database"
 )
@@ -31,7 +32,18 @@ func LoadConfig(taskToken string) (*Config, error) {
 		}{
 			TaskToken: taskToken,
 		},
-		EnableTracing: getEnvOrDefault("ENABLE_TRACING", "false") == "true",
+		EnableTracing: false,
+	}
+
+	// 環境変数[SBCNTR_ENABLE_TRACING]を見てトレースを有効にする。対応しているTracingはAWS_XRAYのみ。
+	// 環境変数[AWS_XRAY_SDK_DISABLED]がtrueの場合は必ずトレースを無効にする。
+	enableKey := os.Getenv("SBCNTR_ENABLE_TRACING")
+	if !sdkDisabled() && (strings.ToLower(enableKey) == "true" || enableKey == "1") {
+		os.Setenv("AWS_XRAY_SDK_DISABLED", "FALSE")
+		cfg.EnableTracing = true
+	} else {
+		os.Setenv("AWS_XRAY_SDK_DISABLED", "TRUE")
+		cfg.EnableTracing = false
 	}
 
 	return cfg, nil
@@ -52,4 +64,10 @@ func getEnvAsIntOrDefault(key string, defaultValue int) int {
 		}
 	}
 	return defaultValue
+}
+
+// Check if SDK is disabled
+func sdkDisabled() bool {
+	disableKey := os.Getenv("AWS_XRAY_SDK_DISABLED")
+	return strings.ToLower(disableKey) == "true"
 }

@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/aws/aws-xray-sdk-go/xray"
 	"github.com/horsewin/echo-playground-batch-task/internal/common/config"
 	"github.com/horsewin/echo-playground-batch-task/internal/common/database"
 	"github.com/horsewin/echo-playground-batch-task/internal/model"
@@ -52,20 +53,35 @@ func (s *ReservationBatchService) SetArgs(args []model.Reservation) {
 
 // Run は予約バッチ処理を実行します
 func (s *ReservationBatchService) Run(ctx context.Context) error {
+	// X-Rayセグメントの作成
+	ctx, seg := xray.BeginSubsegment(ctx, "ReservationBatchService.Run")
+	defer seg.Close(nil)
+
 	reservations := s.args
 	log.Printf("Starting reservation batch process for %d reservations...", len(reservations))
+
+	// セグメントにメタデータを追加
+	if err := seg.AddMetadata("reservation_count", len(reservations)); err != nil {
+		log.Printf("Failed to add reservation_count metadata: %v", err)
+	}
 
 	// 処理開始時刻を記録
 	startTime := time.Now()
 
 	// 予約レコードを作成
 	if err := s.reservationRepo.CreateReservations(ctx, reservations); err != nil {
+		seg.Close(err)
 		return fmt.Errorf("failed to create reservations: %w", err)
 	}
 
 	// 処理終了時刻を記録し、実行時間を計算
 	endTime := time.Now()
 	duration := endTime.Sub(startTime)
+
+	// セグメントにメタデータを追加
+	if err := seg.AddMetadata("duration", duration.String()); err != nil {
+		log.Printf("Failed to add duration metadata: %v", err)
+	}
 
 	log.Printf("Reservation batch process completed successfully. Duration: %v", duration)
 	return nil
