@@ -12,10 +12,15 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/aws/aws-xray-sdk-go/xray"
 	"github.com/horsewin/echo-playground-batch-task/internal/common/config"
 	"github.com/horsewin/echo-playground-batch-task/internal/common/utils"
 	"github.com/horsewin/echo-playground-batch-task/internal/model"
 	"github.com/horsewin/echo-playground-batch-task/internal/service/batch"
+)
+
+const (
+	projectName = "echo-playground-batch-task"
 )
 
 func main() {
@@ -37,6 +42,21 @@ func main() {
 	cfg, err := config.LoadConfig(taskToken)
 	if err != nil {
 		log.Fatalf("Failed to load config: %v\nStack trace:\n%s", err, debug.Stack())
+	}
+
+	// X-Ray設定
+	if cfg.EnableTracing {
+		if err := xray.Configure(xray.Config{
+			DaemonAddr:     "127.0.0.1:2000", // X-Rayデーモンのアドレス
+			ServiceVersion: "1.0.0",
+		}); err != nil {
+			log.Printf("Failed to configure X-Ray: %v", err)
+			// X-Ray設定失敗時はデフォルトの設定を使用
+			if configErr := xray.Configure(xray.Config{}); configErr != nil {
+				log.Fatalf("Failed to configure default X-Ray settings: %v", configErr)
+			}
+		}
+		os.Setenv("AWS_XRAY_CONTEXT_MISSING", "LOG_ERROR")
 	}
 
 	// 通知バッチサービスを作成

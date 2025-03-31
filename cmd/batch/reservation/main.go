@@ -14,9 +14,15 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sfn"
+	"github.com/aws/aws-xray-sdk-go/xray"
 	"github.com/horsewin/echo-playground-batch-task/internal/common/config"
 	"github.com/horsewin/echo-playground-batch-task/internal/common/utils"
 	"github.com/horsewin/echo-playground-batch-task/internal/service/batch"
+)
+
+const (
+	// TODO: 適切な名前に変更をする
+	projectName = "echo-playground-batch-task"
 )
 
 func main() {
@@ -40,6 +46,21 @@ func main() {
 		log.Fatalf("Failed to load config: %v\nStack trace:\n%s", err, debug.Stack())
 	}
 
+	// X-Ray設定
+	if cfg.EnableTracing {
+		if err := xray.Configure(xray.Config{
+			DaemonAddr:     "127.0.0.1:2000", // X-Rayデーモンのアドレス
+			ServiceVersion: "1.0.0",
+		}); err != nil {
+			log.Printf("Failed to configure X-Ray: %v", err)
+			// X-Ray設定失敗時はデフォルトの設定を使用
+			if configErr := xray.Configure(xray.Config{}); configErr != nil {
+				log.Fatalf("Failed to configure default X-Ray settings: %v", configErr)
+			}
+		}
+		os.Setenv("AWS_XRAY_CONTEXT_MISSING", "LOG_ERROR")
+	}
+
 	// Step Functionsクライアントの初期化
 	var sfnClient *sfn.Client
 	if os.Getenv("ENV") != "LOCAL" {
@@ -51,7 +72,7 @@ func main() {
 	}
 
 	// サービスの初期化
-	service, err := batch.NewReservationBatchService(cfg, sfnClient)
+	service, err := batch.NewReservationBatchService(cfg)
 	if err != nil {
 		log.Fatalf("Failed to create service: %v\nStack trace:\n%s", err, debug.Stack())
 	}

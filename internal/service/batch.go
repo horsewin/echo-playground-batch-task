@@ -25,8 +25,8 @@ func NewBatchService(cfg *config.Config) *BatchService {
 
 	return &BatchService{
 		config:           cfg,
-		reservationRepo:  repository.NewReservationRepository(db.DB),
-		notificationRepo: repository.NewNotificationRepository(db.DB),
+		reservationRepo:  repository.NewReservationRepository(db),
+		notificationRepo: repository.NewNotificationRepository(db),
 	}
 }
 
@@ -37,7 +37,7 @@ func (s *BatchService) Run(ctx context.Context) error {
 	startTime := time.Now()
 
 	// バッチ処理を実行
-	if err := s.processPendingReservations(); err != nil {
+	if err := s.processPendingReservations(ctx); err != nil {
 		log.Printf("Error processing pending reservations: %v", err)
 		return err
 	}
@@ -50,9 +50,9 @@ func (s *BatchService) Run(ctx context.Context) error {
 	return nil
 }
 
-func (s *BatchService) processPendingReservations() error {
+func (s *BatchService) processPendingReservations(ctx context.Context) error {
 	// 保留中の予約を取得
-	reservations, err := s.reservationRepo.GetReservationsByStatus("pending")
+	reservations, err := s.reservationRepo.GetReservationsByStatus(ctx, "pending")
 	if err != nil {
 		return fmt.Errorf("failed to get pending reservations: %w", err)
 	}
@@ -68,7 +68,7 @@ func (s *BatchService) processPendingReservations() error {
 		}
 
 		// 既存の予約をチェック
-		exists, err := s.reservationRepo.CheckExistingReservation(reservation.PetID)
+		exists, err := s.reservationRepo.CheckExistingReservation(ctx, reservation.PetID)
 		if err != nil {
 			if rollbackErr := tx.Rollback(); rollbackErr != nil {
 				log.Printf("Failed to rollback transaction for reservation %d: %v", reservation.ReservationID, rollbackErr)
@@ -79,7 +79,7 @@ func (s *BatchService) processPendingReservations() error {
 
 		if exists {
 			// 既存の予約がある場合は、この予約をキャンセル
-			if err := s.reservationRepo.UpdateStatus(tx, reservation.ReservationID, "cancelled"); err != nil {
+			if err := s.reservationRepo.UpdateStatus(ctx, tx, reservation.ReservationID, "cancelled"); err != nil {
 				if rollbackErr := tx.Rollback(); rollbackErr != nil {
 					log.Printf("Failed to rollback transaction for reservation %d: %v", reservation.ReservationID, rollbackErr)
 				}
@@ -98,7 +98,7 @@ func (s *BatchService) processPendingReservations() error {
 				UpdatedAt: time.Now(),
 			}
 
-			if err := s.notificationRepo.Create(tx, notification); err != nil {
+			if err := s.notificationRepo.Create(ctx, tx, notification); err != nil {
 				if rollbackErr := tx.Rollback(); rollbackErr != nil {
 					log.Printf("Failed to rollback transaction for reservation %d: %v", reservation.ReservationID, rollbackErr)
 				}
@@ -107,7 +107,7 @@ func (s *BatchService) processPendingReservations() error {
 			}
 		} else {
 			// 既存の予約がない場合は、予約を確定
-			if err := s.reservationRepo.UpdateStatus(tx, reservation.ReservationID, "confirmed"); err != nil {
+			if err := s.reservationRepo.UpdateStatus(ctx, tx, reservation.ReservationID, "confirmed"); err != nil {
 				if rollbackErr := tx.Rollback(); rollbackErr != nil {
 					log.Printf("Failed to rollback transaction for reservation %d: %v", reservation.ReservationID, rollbackErr)
 				}
@@ -126,7 +126,7 @@ func (s *BatchService) processPendingReservations() error {
 				UpdatedAt: time.Now(),
 			}
 
-			if err := s.notificationRepo.Create(tx, notification); err != nil {
+			if err := s.notificationRepo.Create(ctx, tx, notification); err != nil {
 				if rollbackErr := tx.Rollback(); rollbackErr != nil {
 					log.Printf("Failed to rollback transaction for reservation %d: %v", reservation.ReservationID, rollbackErr)
 				}

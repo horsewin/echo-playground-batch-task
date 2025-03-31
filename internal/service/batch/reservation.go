@@ -2,45 +2,42 @@ package batch
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
-	"os"
-	"runtime/debug"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/sfn"
 	"github.com/horsewin/echo-playground-batch-task/internal/common/config"
 	"github.com/horsewin/echo-playground-batch-task/internal/common/database"
-	"github.com/horsewin/echo-playground-batch-task/internal/common/utils"
 	"github.com/horsewin/echo-playground-batch-task/internal/model"
 	"github.com/horsewin/echo-playground-batch-task/internal/repository"
 )
 
+// ReservationBatchService は予約バッチ処理を担当します
 type ReservationBatchService struct {
+	args            []model.Reservation
 	db              *database.DB
-	reservationRepo *repository.ReservationRepositoryImpl
-	sfnClient       *sfn.Client
+	reservationRepo repository.ReservationRepository
 	cfg             *config.Config
 }
 
-// NewReservationBatchService ... 予約バッチサービスを作成する
-func NewReservationBatchService(cfg *config.Config, sfnClient *sfn.Client) (*ReservationBatchService, error) {
+// NewReservationBatchService は新しいReservationBatchServiceを作成します
+func NewReservationBatchService(cfg *config.Config) (*ReservationBatchService, error) {
 	db, err := database.NewDB(cfg.DB)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create database connection: %w", err)
 	}
 
+	// database.DBをrepository.DBに変換
+	repoDb := &repository.DB{DB: db.DB}
+
 	return &ReservationBatchService{
 		db:              db,
-		reservationRepo: repository.NewReservationRepository(db.DB),
-		sfnClient:       sfnClient,
+		reservationRepo: repository.NewReservationRepository(repoDb),
 		cfg:             cfg,
 	}, nil
 }
 
-// Close ... 終了処理
+// Close は終了処理を行います
 func (s *ReservationBatchService) Close() error {
 	if s.db != nil {
 		return s.db.Close()
@@ -48,22 +45,22 @@ func (s *ReservationBatchService) Close() error {
 	return nil
 }
 
-// Run ... 予約バッチ処理を実行する
+// SetArgs は予約バッチ処理の引数を設定します
+func (s *ReservationBatchService) SetArgs(args []model.Reservation) {
+	s.args = args
+}
+
+// Run は予約バッチ処理を実行します
 func (s *ReservationBatchService) Run(ctx context.Context) error {
-	log.Println("Starting reservation batch process...")
+	reservations := s.args
+	log.Printf("Starting reservation batch process for %d reservations...", len(reservations))
 
 	// 処理開始時刻を記録
 	startTime := time.Now()
 
-	// バッチ処理を実行
-	events, err := s.processReservationsByStatus("pending")
-	if err != nil {
-		return utils.GetStackWithError(fmt.Errorf("failed to process pending reservations: %w", err))
-	}
-
-	// イベントを発行
-	if err := s.sendTaskSuccess(ctx, events); err != nil {
-		return utils.GetStackWithError(fmt.Errorf("failed to send task success: %w", err))
+	// 予約レコードを作成
+	if err := s.reservationRepo.CreateReservations(ctx, reservations); err != nil {
+		return fmt.Errorf("failed to create reservations: %w", err)
 	}
 
 	// 処理終了時刻を記録し、実行時間を計算
@@ -75,11 +72,13 @@ func (s *ReservationBatchService) Run(ctx context.Context) error {
 }
 
 // processReservationsByStatus は、指定されたステータスの予約を処理します
-func (s *ReservationBatchService) processReservationsByStatus(status string) ([]model.ReservationEvent, error) {
+// 現在は未使用ですが、将来的に使用される可能性があるため、コメントアウトして保持します
+/*
+func (s *ReservationBatchService) processReservationsByStatus(ctx context.Context, status string) ([]model.ReservationEvent, error) {
 	// 指定されたステータスの予約を取得
-	reservations, err := s.reservationRepo.GetReservationsByStatus(status)
+	reservations, err := s.reservationRepo.GetReservationsByStatus(ctx, status)
 	if err != nil {
-		return nil, utils.GetStackWithError(fmt.Errorf("failed to get reservations with status %s: %w", status, err))
+		return nil, fmt.Errorf("failed to get reservations with status %s: %w", status, err)
 	}
 
 	log.Printf("Found %d reservations with status %s", len(reservations), status)
@@ -91,51 +90,49 @@ func (s *ReservationBatchService) processReservationsByStatus(status string) ([]
 		// トランザクション開始
 		tx, err := s.reservationRepo.BeginTx()
 		if err != nil {
-			log.Printf("Failed to begin transaction for reservation %d: %v\nStack trace:\n%s",
-				reservation.ReservationID, err, debug.Stack())
+			log.Printf("Failed to begin transaction for reservation %d: %v",
+				reservation.ReservationID, err)
 			continue
 		}
 
 		// 既存の予約をチェック
-		exists, err := s.reservationRepo.CheckExistingReservation(reservation.PetID)
+		exists, err := s.reservationRepo.CheckExistingReservation(ctx, reservation.PetID)
 		if err != nil {
 			if rollbackErr := tx.Rollback(); rollbackErr != nil {
-				log.Printf("Failed to rollback transaction for reservation %d: %v\nStack trace:\n%s",
-					reservation.ReservationID, rollbackErr, debug.Stack())
+				log.Printf("Failed to rollback transaction for reservation %d: %v",
+					reservation.ReservationID, rollbackErr)
 			}
-			log.Printf("Failed to check existing reservation for pet %s: %v\nStack trace:\n%s",
-				reservation.PetID, err, debug.Stack())
+			log.Printf("Failed to check existing reservation for pet %s: %v",
+				reservation.PetID, err)
 			continue
 		}
 
 		if exists {
 			// 既存の予約がある場合は、この予約をキャンセル
-			if err := s.reservationRepo.UpdateStatus(tx, reservation.ReservationID, "cancelled"); err != nil {
+			if err := s.reservationRepo.UpdateStatus(ctx, tx, reservation.ReservationID, "cancelled"); err != nil {
 				if rollbackErr := tx.Rollback(); rollbackErr != nil {
-					log.Printf("Failed to rollback transaction for reservation %d: %v\nStack trace:\n%s",
-						reservation.ReservationID, rollbackErr, debug.Stack())
+					log.Printf("Failed to rollback transaction for reservation %d: %v",
+						reservation.ReservationID, rollbackErr)
 				}
-				log.Printf("Failed to update reservation status to cancelled: %v\nStack trace:\n%s",
-					err, debug.Stack())
+				log.Printf("Failed to update reservation status to cancelled: %v", err)
 				continue
 			}
 		} else {
 			// 既存の予約がない場合は、予約を確定
-			if err := s.reservationRepo.UpdateStatus(tx, reservation.ReservationID, "confirmed"); err != nil {
+			if err := s.reservationRepo.UpdateStatus(ctx, tx, reservation.ReservationID, "confirmed"); err != nil {
 				if rollbackErr := tx.Rollback(); rollbackErr != nil {
-					log.Printf("Failed to rollback transaction for reservation %d: %v\nStack trace:\n%s",
-						reservation.ReservationID, rollbackErr, debug.Stack())
+					log.Printf("Failed to rollback transaction for reservation %d: %v",
+						reservation.ReservationID, rollbackErr)
 				}
-				log.Printf("Failed to update reservation status to confirmed: %v\nStack trace:\n%s",
-					err, debug.Stack())
+				log.Printf("Failed to update reservation status to confirmed: %v", err)
 				continue
 			}
 		}
 
 		// トランザクションをコミット
 		if err := tx.Commit(); err != nil {
-			log.Printf("Failed to commit transaction for reservation %d: %v\nStack trace:\n%s",
-				reservation.ReservationID, err, debug.Stack())
+			log.Printf("Failed to commit transaction for reservation %d: %v",
+				reservation.ReservationID, err)
 			continue
 		}
 
@@ -150,46 +147,4 @@ func (s *ReservationBatchService) processReservationsByStatus(status string) ([]
 
 	return events, nil
 }
-
-// sendTaskSuccess は、Step Functionsのタスク成功を通知し、イベントを返却します
-func (s *ReservationBatchService) sendTaskSuccess(ctx context.Context, events []model.ReservationEvent) error {
-	// ローカルの場合はStep Functionsの処理をスキップ
-	if os.Getenv("ENV") == "LOCAL" {
-		log.Printf("Local environment detected. Skipping Step Functions task success notification. Events: %+v", events)
-		return nil
-	}
-
-	// イベントを通知形式に変換
-	notifications := make([]model.Notification, len(events))
-	for i, event := range events {
-		notifications[i] = model.NewReservationNotification(event)
-	}
-
-	// 通知をJSONに変換
-	output, err := json.Marshal(map[string]any{
-		"notifications": notifications,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to marshal notifications: %w", err)
-	}
-
-	// タスクトークンを設定から取得
-	taskToken := s.cfg.SFN.TaskToken
-	if taskToken == "" && os.Getenv("ENV") != "LOCAL" {
-		return fmt.Errorf("SFN_TASK_TOKEN is not set in config")
-	}
-
-	// SendTaskSuccess APIを呼び出す
-	input := &sfn.SendTaskSuccessInput{
-		TaskToken: aws.String(taskToken),
-		Output:    aws.String(string(output)),
-	}
-
-	_, err = s.sfnClient.SendTaskSuccess(ctx, input)
-	if err != nil {
-		return fmt.Errorf("failed to send task success: %w", err)
-	}
-
-	log.Printf("Successfully sent task success with notifications: %s", string(output))
-	return nil
-}
+*/

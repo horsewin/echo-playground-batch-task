@@ -17,13 +17,21 @@ type MockNotificationRepository struct {
 	notifications             []model.NotificationRecord
 }
 
-func (m *MockNotificationRepository) CreateNotifications(records []model.NotificationRecord) error {
+func (m *MockNotificationRepository) CreateNotifications(ctx context.Context, records []model.NotificationRecord) error {
 	m.createNotificationsCalled = true
 	m.notifications = records
 	return m.createNotificationsError
 }
 
-func (m *MockNotificationRepository) Create(tx *sqlx.Tx, record *model.NotificationRecord) error {
+func (m *MockNotificationRepository) Create(ctx context.Context, tx *sqlx.Tx, record *model.NotificationRecord) error {
+	return nil
+}
+
+func (m *MockNotificationRepository) GetByUserID(ctx context.Context, userID string) ([]model.NotificationRecord, error) {
+	return nil, nil
+}
+
+func (m *MockNotificationRepository) UpdateIsRead(ctx context.Context, tx *sqlx.Tx, id int, isRead bool) error {
 	return nil
 }
 
@@ -33,7 +41,7 @@ type MockPetRepository struct {
 	getNameByIDError  error
 }
 
-func (m *MockPetRepository) GetNameByID(id string) (string, error) {
+func (m *MockPetRepository) GetNameByID(ctx context.Context, id string) (string, error) {
 	m.getNameByIDCalled = true
 	return "TestPet", m.getNameByIDError
 }

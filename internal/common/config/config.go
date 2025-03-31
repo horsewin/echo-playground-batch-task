@@ -13,6 +13,7 @@ type Config struct {
 	SFN struct {
 		TaskToken string
 	}
+	EnableTracing bool
 }
 
 // LoadConfig は設定を読み込みます
@@ -30,6 +31,7 @@ func LoadConfig(taskToken string) (*Config, error) {
 		}{
 			TaskToken: taskToken,
 		},
+		EnableTracing: getEnvOrDefault("ENABLE_TRACING", "false") == "true",
 	}
 
 	return cfg, nil

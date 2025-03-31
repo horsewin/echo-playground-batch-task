@@ -29,10 +29,13 @@ func NewNotificationBatchService(cfg *config.Config) (*NotificationBatchService,
 		return nil, fmt.Errorf("failed to create database connection: %w", err)
 	}
 
+	// database.DBをrepository.DBに変換
+	repoDb := &repository.DB{DB: db.DB}
+
 	return &NotificationBatchService{
 		db:               db,
-		notificationRepo: repository.NewNotificationRepository(db.DB),
-		petRepo:          repository.NewPetRepository(db.DB),
+		notificationRepo: repository.NewNotificationRepository(repoDb),
+		petRepo:          repository.NewPetRepository(repoDb),
 		cfg:              cfg,
 	}, nil
 }
@@ -59,7 +62,7 @@ func (s *NotificationBatchService) Run(ctx context.Context) error {
 	startTime := time.Now()
 
 	// ペット名を取得
-	petNameMap, err := s.getPetNameMap(notifications)
+	petNameMap, err := s.getPetNameMap(ctx, notifications)
 	if err != nil {
 		return err
 	}
@@ -75,7 +78,7 @@ func (s *NotificationBatchService) Run(ctx context.Context) error {
 	}
 
 	// 通知レコードを作成
-	if err := s.notificationRepo.CreateNotifications(records); err != nil {
+	if err := s.notificationRepo.CreateNotifications(ctx, records); err != nil {
 		return fmt.Errorf("failed to create notifications: %w", err)
 	}
 
@@ -91,7 +94,7 @@ func (s *NotificationBatchService) Run(ctx context.Context) error {
 // N+1とならないように先に重複がないペットIDを取得をしておく
 // 1. 重複がないペットIDを取得
 // 2. ペットIDからペット名を取得してMapとして保持する
-func (s *NotificationBatchService) getPetNameMap(notifications []model.Notification) (map[string]string, error) {
+func (s *NotificationBatchService) getPetNameMap(ctx context.Context, notifications []model.Notification) (map[string]string, error) {
 	petIDs := make([]string, 0)
 	petNameMap := make(map[string]string)
 	for _, notification := range notifications {
@@ -116,7 +119,7 @@ func (s *NotificationBatchService) getPetNameMap(notifications []model.Notificat
 
 	// ペット名を取得
 	for _, petID := range petIDs {
-		petName, err := s.petRepo.GetNameByID(petID)
+		petName, err := s.petRepo.GetNameByID(ctx, petID)
 		if err != nil {
 			return nil, err
 		}
