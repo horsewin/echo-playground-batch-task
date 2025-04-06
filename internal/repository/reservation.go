@@ -185,6 +185,7 @@ func (r *ReservationRepositoryImpl) CreateReservations(ctx context.Context, rese
 	}
 
 	for _, reservation := range reservations {
+		// PERF: bulk insertにしたほうがパフォーマンス上は望ましい
 		_, err = tx.NamedExecContext(ctx, query, reservation)
 		if err != nil {
 			if rbErr := tx.Rollback(); rbErr != nil {
