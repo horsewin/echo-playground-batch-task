@@ -1,10 +1,12 @@
 package database
 
 import (
-	"database/sql"
 	"fmt"
+	"os"
+	"sync"
 	"time"
 
+	"github.com/aws/aws-xray-sdk-go/xray"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 )
@@ -21,19 +23,38 @@ type Config struct {
 	DBName   string
 }
 
+type SQLHandler struct {
+	Conn *sqlx.DB
+}
+
+var (
+	sqlHandlerInstance *SQLHandler
+	once               sync.Once
+)
+
 func NewDB(cfg Config) (*DB, error) {
+	// localhostのDBの場合はSSLを無効化
+	var sslModeValue string
+	if cfg.Host == "localhost" || os.Getenv("DB_HOST") == "localhost" {
+		sslModeValue = "disable"
+	} else {
+		sslModeValue = "require" // 本番環境ではSSLを有効にする
+	}
+
 	dsn := fmt.Sprintf(
-		"host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
+		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
 		cfg.Host,
 		cfg.Port,
 		cfg.UserName,
 		cfg.Password,
 		cfg.DBName,
+		sslModeValue,
 	)
 
-	db, err := sql.Open("postgres", dsn)
+	// X-Ray対応のSQLコンテキストを作成
+	db, err := xray.SQLContext("postgres", dsn)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open database: %w", err)
+		return nil, fmt.Errorf("failed to open database with X-Ray: %w", err)
 	}
 
 	// コネクションプールの設定
@@ -43,6 +64,7 @@ func NewDB(cfg Config) (*DB, error) {
 
 	// 接続テスト
 	if err := db.Ping(); err != nil {
+		db.Close()
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
