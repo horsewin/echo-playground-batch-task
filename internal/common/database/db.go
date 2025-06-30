@@ -3,7 +3,6 @@ package database
 import (
 	"fmt"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/aws/aws-xray-sdk-go/xray"
@@ -26,11 +25,6 @@ type Config struct {
 type SQLHandler struct {
 	Conn *sqlx.DB
 }
-
-var (
-	sqlHandlerInstance *SQLHandler
-	once               sync.Once
-)
 
 func NewDB(cfg Config) (*DB, error) {
 	// localhostのDBの場合はSSLを無効化
