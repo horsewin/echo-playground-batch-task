@@ -53,10 +53,19 @@ func (n Notification) ToNotificationRecord(petNameMap map[string]string) (*Notif
 			return nil, fmt.Errorf("pet_id not found in petNameMap")
 		}
 
-		dateTimeStr := data["date_time"].(string)
-		dateTime, err := time.Parse(time.RFC3339, dateTimeStr)
-		if err != nil {
-			return nil, fmt.Errorf("invalid date_time format: %v", err)
+		// date_timeフィールドの型をチェックして適切に処理
+		var dateTime time.Time
+		switch v := data["date_time"].(type) {
+		case time.Time:
+			dateTime = v
+		case string:
+			parsedTime, err := time.Parse(time.RFC3339, v)
+			if err != nil {
+				return nil, fmt.Errorf("invalid date_time format: %v", err)
+			}
+			dateTime = parsedTime
+		default:
+			return nil, fmt.Errorf("unexpected type for date_time: %T", v)
 		}
 
 		message := fmt.Sprintf(`予約が完了しました。見学をお楽しみください。
