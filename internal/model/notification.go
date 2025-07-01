@@ -98,6 +98,7 @@ func (n Notification) ToNotificationRecord(petNameMap map[string]string) (*Notif
 func NewReservationNotification(event ReservationEvent) Notification {
 	return Notification{
 		Type:      NotificationTypeReservation,
+		DateTime:  event.DateTime,
 		CreatedAt: event.CreatedAt,
 		Data: map[string]interface{}{
 			"user_id":   event.UserID,
