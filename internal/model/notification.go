@@ -19,7 +19,6 @@ const (
 // アプリケーションサービス層で利用されます
 type Notification struct {
 	Type      NotificationType `json:"type"`
-	DateTime  time.Time        `json:"date_time"`
 	CreatedAt time.Time        `json:"created_at"`
 	Data      interface{}      `json:"data"`
 }
@@ -98,7 +97,6 @@ func (n Notification) ToNotificationRecord(petNameMap map[string]string) (*Notif
 func NewReservationNotification(event ReservationEvent) Notification {
 	return Notification{
 		Type:      NotificationTypeReservation,
-		DateTime:  event.DateTime,
 		CreatedAt: event.CreatedAt,
 		Data: map[string]interface{}{
 			"user_id":   event.UserID,
