@@ -167,7 +167,7 @@ func (s *ReservationBatchService) processReservationsByStatus(ctx context.Contex
 // sendTaskSuccess は、Step Functionsのタスク成功を通知し、イベントを返却します
 func (s *ReservationBatchService) sendTaskSuccess(ctx context.Context, events []model.ReservationEvent) error {
 	// ローカルの場合はStep Functionsの処理をスキップ
-	if os.Getenv("ENV") == "LOCAL" {
+	if os.Getenv("ENV") == "LOCAL" || s.sfnClient == nil {
 		log.Printf("Local environment detected. Skipping Step Functions task success notification")
 		return nil
 	}
