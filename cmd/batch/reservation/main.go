@@ -72,7 +72,7 @@ func main() {
 	}
 
 	// サービスの初期化
-	service, err := batch.NewReservationBatchService(cfg)
+	service, err := batch.NewReservationBatchService(cfg, sfnClient)
 	if err != nil {
 		log.Fatalf("Failed to create service: %v\nStack trace:\n%s", err, debug.Stack())
 	}

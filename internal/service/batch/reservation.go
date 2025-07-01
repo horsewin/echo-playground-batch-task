@@ -29,7 +29,7 @@ type ReservationBatchService struct {
 }
 
 // NewReservationBatchService は新しいReservationBatchServiceを作成します
-func NewReservationBatchService(cfg *config.Config) (*ReservationBatchService, error) {
+func NewReservationBatchService(cfg *config.Config, sfnClient *sfn.Client) (*ReservationBatchService, error) {
 	db, err := database.NewDB(cfg.DB)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create database connection: %w", err)
@@ -41,6 +41,7 @@ func NewReservationBatchService(cfg *config.Config) (*ReservationBatchService, e
 	return &ReservationBatchService{
 		db:              db,
 		reservationRepo: repository.NewReservationRepository(repoDb),
+		sfnClient:       sfnClient,
 		cfg:             cfg,
 	}, nil
 }
@@ -170,6 +171,10 @@ func (s *ReservationBatchService) sendTaskSuccess(ctx context.Context, events []
 	if os.Getenv("ENV") == "LOCAL" || s.sfnClient == nil {
 		log.Printf("Local environment detected. Skipping Step Functions task success notification")
 		return nil
+	}
+
+	if s.sfnClient == nil {
+		return fmt.Errorf("sfnClient is not initialized")
 	}
 
 	// イベントを通知形式に変換
